@@ -94,13 +94,43 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| *(populated by roadmapper)* | | |
+| INFR-02 | Phase 1 | Pending |
+| INFR-03 | Phase 1 | Pending |
+| OPS-02 | Phase 1 | Pending |
+| OPS-03 | Phase 1 | Pending |
+| OPS-04 | Phase 1 | Pending |
+| OPS-05 | Phase 1 | Pending |
+| OPS-06 | Phase 1 | Pending |
+| PROTO-01 | Phase 2 | Pending |
+| PROTO-02 | Phase 2 | Pending |
+| PROTO-03 | Phase 2 | Pending |
+| PROTO-04 | Phase 2 | Pending |
+| PROTO-05 | Phase 2 | Pending |
+| PROTO-06 | Phase 2 | Pending |
+| PROTO-07 | Phase 2 | Pending |
+| PROTO-11 | Phase 2 | Pending |
+| TRAN-01 | Phase 2 | Pending |
+| INFR-01 | Phase 3 | Pending |
+| INFR-04 | Phase 3 | Pending |
+| AUTH-01 | Phase 4 | Pending |
+| AUTH-02 | Phase 4 | Pending |
+| AUTH-03 | Phase 4 | Pending |
+| AUTH-04 | Phase 4 | Pending |
+| AUTH-05 | Phase 4 | Pending |
+| TRAN-02 | Phase 4 | Pending |
+| TRAN-03 | Phase 5 | Pending |
+| TRAN-04 | Phase 5 | Pending |
+| TRAN-05 | Phase 5 | Pending |
+| PROTO-08 | Phase 6 | Pending |
+| PROTO-09 | Phase 6 | Pending |
+| PROTO-10 | Phase 6 | Pending |
+| OPS-01 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 30 total
-- Mapped to phases: 0
-- Unmapped: 30
+- v1 requirements: 31 total
+- Mapped to phases: 31
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-02*
-*Last updated: 2026-04-02 after initial definition*
+*Last updated: 2026-04-02 after roadmap creation — all 31 requirements mapped*
