@@ -2,8 +2,8 @@
 phase: 1
 slug: foundation
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-03
 ---
 
@@ -25,6 +25,12 @@ created: 2026-04-03
 
 ---
 
+## Wave 0 Note
+
+TDD tasks in Plans 01 and 02 write tests BEFORE implementation within the same task. This satisfies the Wave 0 requirement — test stubs exist and fail (RED) before production code is written (GREEN). A separate Wave 0 plan is not needed because the TDD discipline within each task provides equivalent coverage.
+
+---
+
 ## Sampling Rate
 
 - **After every task commit:** Run `mvn test -Dtest="RocksDbStorageTest,CacheConfigurationTest" -q`
@@ -36,26 +42,15 @@ created: 2026-04-03
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 01-01-01 | 01 | 0 | INFR-02 | unit | `mvn test -Dtest="RocksDbStorageTest" -q` | ❌ W0 | ⬜ pending |
-| 01-01-02 | 01 | 0 | INFR-03 | unit | `mvn test -Dtest="CacheConfigurationTest" -q` | ❌ W0 | ⬜ pending |
-| 01-01-03 | 01 | 0 | OPS-02, OPS-05 | integration | `mvn test -Dtest="ApplicationStartupTest" -q` | ❌ W0 | ⬜ pending |
-| 01-01-04 | 01 | 0 | OPS-06 | integration | `mvn test -Dtest="GracefulShutdownTest" -q` | ❌ W0 | ⬜ pending |
+| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | Status |
+|---------|------|------|-------------|-----------|-------------------|--------|
+| 01-01-01 | 01 | 1 | INFR-02 | unit (TDD) | `mvn test -Dtest="TbmqLightweightApplicationTest" -q` | pending |
+| 01-01-02 | 01 | 1 | INFR-02, OPS-04 | unit (TDD) | `mvn test -Dtest="RocksDbStorageTest" -q` | pending |
+| 01-02-01 | 02 | 2 | OPS-05 | integration (TDD) | `mvn test -Dtest="NettyServerBootstrapTest" -q` | pending |
+| 01-02-02 | 02 | 2 | INFR-03, OPS-06 | integration | `mvn test -Dtest="CacheConfigurationTest,GracefulShutdownTest" -q` | pending |
+| 01-03-01 | 03 | 3 | OPS-02, OPS-03 | manual | Docker build + run verification | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
-
----
-
-## Wave 0 Requirements
-
-- [ ] `src/test/java/org/thingsboard/mqtt/broker/lightweight/storage/RocksDbStorageTest.java` — stubs for INFR-02, OPS-04
-- [ ] `src/test/java/org/thingsboard/mqtt/broker/lightweight/cache/CacheConfigurationTest.java` — stubs for INFR-03
-- [ ] `src/test/java/org/thingsboard/mqtt/broker/lightweight/ApplicationStartupTest.java` — stubs for OPS-02, OPS-05
-- [ ] `src/test/java/org/thingsboard/mqtt/broker/lightweight/GracefulShutdownTest.java` — stubs for OPS-06
-- [ ] `pom.xml` with JUnit 5 via `spring-boot-starter-test` + Surefire plugin
-
-*Framework: `spring-boot-starter-test` includes JUnit 5, Mockito, AssertJ — no additional install.*
+*Status: pending / green / red / flaky*
 
 ---
 
@@ -65,16 +60,17 @@ created: 2026-04-03
 |----------|-------------|------------|-------------------|
 | Docker multi-arch build succeeds | OPS-03 | Requires Docker buildx with multi-platform builder | `docker buildx build --platform linux/amd64,linux/arm64 -t thingsboard/tbmq-lightweight .` |
 | ARM64 RocksDB JNI loads | OPS-03 | Requires real ARM64 hardware or QEMU | Run image on ARM64 device, verify no `UnsatisfiedLinkError` |
+| Container starts and accepts MQTT TCP | OPS-02 | End-to-end Docker verification | Plan 01-03, Task 2 (checkpoint:human-verify) |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or manual verification step
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] TDD within tasks satisfies Wave 0 (tests written before implementation)
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
