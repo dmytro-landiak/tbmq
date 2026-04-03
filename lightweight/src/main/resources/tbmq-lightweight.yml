@@ -1,0 +1,33 @@
+tbmq:
+  netty:
+    port: "${TBMQ_MQTT_PORT:1883}"
+    max-connections: "${TBMQ_MAX_CONNECTIONS:10000}"
+    boss-threads: "${TBMQ_NETTY_BOSS_THREADS:1}"
+    worker-threads: "${TBMQ_NETTY_WORKER_THREADS:0}"
+  storage:
+    rocksdb:
+      path: "${TBMQ_ROCKSDB_PATH:/data/rocksdb}"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,prometheus"
+  endpoint:
+    health:
+      show-details: "always"
+  metrics:
+    enable:
+      jvm: true
+
+server:
+  port: "${TBMQ_HTTP_PORT:8083}"
+  shutdown: "graceful"
+
+spring:
+  cache:
+    type: caffeine
+  application:
+    name: tbmq-lightweight
+  lifecycle:
+    timeout-per-shutdown-phase: "10s"
