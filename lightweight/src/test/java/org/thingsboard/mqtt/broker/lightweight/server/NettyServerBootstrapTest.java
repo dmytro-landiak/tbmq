@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * max-connections=3 for testing the connection limit enforcement.
  */
 @SpringBootTest(properties = {
+        "spring.config.name=tbmq-lightweight",
         "tbmq.netty.port=0",
         "tbmq.netty.max-connections=3",
         "tbmq.storage.rocksdb.path=${java.io.tmpdir}/tbmq-test-netty",
