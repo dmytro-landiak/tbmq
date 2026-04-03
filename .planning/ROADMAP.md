@@ -12,7 +12,7 @@ TBMQ Lightweight is built bottom-up: infrastructure first, then protocol correct
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Spring Boot app, RocksDB JNI, Netty TCP bootstrap, and multi-arch Docker image with Prometheus metrics
+- [x] **Phase 1: Foundation** - Spring Boot app, RocksDB JNI, Netty TCP bootstrap, and multi-arch Docker image with Prometheus metrics (completed 2026-04-03)
 - [ ] **Phase 2: Core Protocol (MQTT 3.1.1)** - Full MQTT 3.1.1 broker over TCP: QoS 0/1/2, retained messages, LWT, keep-alive, and client takeover
 - [ ] **Phase 3: Message Dispatch** - In-process publish routing via abstracted dispatch interface; wildcard subscription trie; non-blocking Netty handoff
 - [ ] **Phase 4: Security** - TLS termination, username/password auth and X.509 mTLS backed by RocksDB, topic-level ACL, secure-by-default configuration
@@ -32,11 +32,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `GET /actuator/prometheus` returns a valid Prometheus text format response with at least connection count and JVM metrics
   4. The Docker image builds and runs correctly on both linux/amd64 and linux/arm64 (Debian/glibc base; no Alpine)
   5. The broker shuts down gracefully on `SIGTERM` — active channels are closed cleanly, RocksDB is flushed, and no JVM crash or `UnsatisfiedLinkError` occurs
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 01-01-PLAN.md — Maven project skeleton + RocksDB embedded storage layer
 - [x] 01-02-PLAN.md — Netty TCP bootstrap + Caffeine cache + Prometheus metrics
-- [ ] 01-03-PLAN.md — Docker image + container verification checkpoint
+- [x] 01-03-PLAN.md — Docker image + container verification checkpoint
 
 ### Phase 2: Core Protocol (MQTT 3.1.1)
 **Goal**: A fully compliant MQTT 3.1.1 broker that any standard MQTT client can connect to, publish messages through, and subscribe to — with QoS 0/1/2, retained messages, LWT, keep-alive enforcement, and correct client takeover behavior — no authentication required in this phase
@@ -110,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 1/3 | In Progress|  |
+| 1. Foundation | 3/3 | Complete   | 2026-04-03 |
 | 2. Core Protocol (MQTT 3.1.1) | 0/TBD | Not started | - |
 | 3. Message Dispatch | 0/TBD | Not started | - |
 | 4. Security | 0/TBD | Not started | - |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-foundation-02-PLAN.md
-last_updated: "2026-04-03T11:50:01.087Z"
+stopped_at: "Checkpoint: 01-foundation-03-PLAN.md Task 2 (human-verify)"
+last_updated: "2026-04-03T11:56:11.693Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 6 | 2 tasks | 10 files |
 | Phase 01-foundation P02 | 9 | 2 tasks | 10 files |
+| Phase 01-foundation P03 | 4 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,7 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: spring.config.name=tbmq-lightweight must be in @SpringBootTest properties — main() updateArguments() is not invoked by Spring Test framework
 - [Phase 01-foundation]: management.prometheus.metrics.export.enabled=true must be explicit in yml — Spring Boot 3.5 defaults prometheus export to false
 - [Phase 01-foundation]: CaffeineCacheMetrics.monitor() must use same tags as Spring Boot auto-config [cache, cache.manager, name] to avoid Prometheus tag collision warnings
+- [Phase 01-foundation]: Use maven:3.9-eclipse-temurin-17 (not -jammy variant) for Docker build stage — the -jammy suffix tag does not exist for this Maven+JDK combination; build stage OS is irrelevant since only the JAR is copied to runtime
 
 ### Pending Todos
 
@@ -84,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-03T11:50:01.085Z
-Stopped at: Completed 01-foundation-02-PLAN.md
+Last session: 2026-04-03T11:56:05.269Z
+Stopped at: Checkpoint: 01-foundation-03-PLAN.md Task 2 (human-verify)
 Resume file: None
