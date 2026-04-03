@@ -3,6 +3,7 @@ package org.thingsboard.mqtt.broker.lightweight;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @SpringBootConfiguration
+@EnableAutoConfiguration
 @EnableAsync
 @EnableScheduling
 @ComponentScan({"org.thingsboard.mqtt.broker.lightweight"})
