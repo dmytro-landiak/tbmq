@@ -40,7 +40,7 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 ### Infrastructure
 
 - [ ] **INFR-01**: Broker uses in-process message dispatch (queue-based) to route messages between publisher and subscriber sessions, replacing Kafka
-- [ ] **INFR-02**: Broker uses RocksDB as embedded key-value store for durable state (credentials, ACLs), replacing PostgreSQL
+- [x] **INFR-02**: Broker uses RocksDB as embedded key-value store for durable state (credentials, ACLs), replacing PostgreSQL
 - [ ] **INFR-03**: Broker uses in-process cache (Caffeine) for hot-path lookups (session state, subscription matching), replacing Redis/Valkey
 - [ ] **INFR-04**: Message dispatch interface is abstracted to allow swapping queue implementations without refactoring consumers
 
@@ -49,7 +49,7 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 - [ ] **OPS-01**: Broker exposes Prometheus-compatible `/metrics` endpoint with connection counts, message rates, and error counters
 - [ ] **OPS-02**: Broker ships as a single Docker image that starts with `docker run -p 1883:1883 thingsboard/tbmq-lightweight` with no external dependencies
 - [ ] **OPS-03**: Docker image supports both linux/amd64 and linux/arm64 architectures
-- [ ] **OPS-04**: Broker persists RocksDB data to a volume-mountable path so configuration survives container restarts
+- [x] **OPS-04**: Broker persists RocksDB data to a volume-mountable path so configuration survives container restarts
 - [ ] **OPS-05**: Broker starts and accepts connections within seconds on a standard developer machine
 - [ ] **OPS-06**: Broker shuts down gracefully — disconnects active clients, flushes RocksDB, releases native resources without JVM crash
 
@@ -94,11 +94,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFR-02 | Phase 1 | Pending |
+| INFR-02 | Phase 1 | Complete |
 | INFR-03 | Phase 1 | Pending |
 | OPS-02 | Phase 1 | Pending |
 | OPS-03 | Phase 1 | Pending |
-| OPS-04 | Phase 1 | Pending |
+| OPS-04 | Phase 1 | Complete |
 | OPS-05 | Phase 1 | Pending |
 | OPS-06 | Phase 1 | Pending |
 | PROTO-01 | Phase 2 | Pending |

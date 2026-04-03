@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-04-02T13:38:51.623Z"
-last_activity: 2026-04-02 — Roadmap created; all 31 v1 requirements mapped across 7 phases
+status: executing
+stopped_at: Completed 01-foundation-01-PLAN.md
+last_updated: "2026-04-03T11:37:52.907Z"
+last_activity: 2026-04-03
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-02)
 
 **Core value:** A fully functional MQTT broker that starts with a single `docker run` command and requires zero external infrastructure
-**Current focus:** Phase 1 - Foundation
+**Current focus:** Phase 01 — foundation
 
 ## Current Position
 
-Phase: 1 of 7 (Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-04-02 — Roadmap created; all 31 v1 requirements mapped across 7 phases
+Phase: 01 (foundation) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-03
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-foundation P01 | 6 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Recent decisions affecting current work:
 - Foundation: Pin Netty to 4.1.x explicitly — Netty 4.2 has breaking API changes; do not let dependency management upgrade it
 - Foundation: Use RocksDB 9.7.4 (rocksdbjni) — v10.x is too fresh (Dec 2025); do not upgrade before R1 ships
 - Dispatch: Start `MsgDispatcherService` with `LinkedBlockingQueue` behind `PublishMsgQueueFactory` interface; upgrade to LMAX Disruptor only if benchmarks show saturation
+- [Phase 01-foundation]: Added @EnableAutoConfiguration to TbmqLightweightApplication — unlike parent TBMQ, lightweight standalone project requires explicit auto-config for MeterRegistry and other Spring Boot beans
+- [Phase 01-foundation]: RocksDB SmartLifecycle running flag must be set before schema_version initialization in start() — internal startup logic bypasses public API guards that check the running state
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-02T13:38:51.621Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation/01-CONTEXT.md
+Last session: 2026-04-03T11:37:52.904Z
+Stopped at: Completed 01-foundation-01-PLAN.md
+Resume file: None
