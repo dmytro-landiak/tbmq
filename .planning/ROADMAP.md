@@ -32,7 +32,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `GET /actuator/prometheus` returns a valid Prometheus text format response with at least connection count and JVM metrics
   4. The Docker image builds and runs correctly on both linux/amd64 and linux/arm64 (Debian/glibc base; no Alpine)
   5. The broker shuts down gracefully on `SIGTERM` — active channels are closed cleanly, RocksDB is flushed, and no JVM crash or `UnsatisfiedLinkError` occurs
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 01-01-PLAN.md — Maven project skeleton + RocksDB embedded storage layer
+- [ ] 01-02-PLAN.md — Netty TCP bootstrap + Caffeine cache + Prometheus metrics
+- [ ] 01-03-PLAN.md — Docker image + container verification checkpoint
 
 ### Phase 2: Core Protocol (MQTT 3.1.1)
 **Goal**: A fully compliant MQTT 3.1.1 broker that any standard MQTT client can connect to, publish messages through, and subscribe to — with QoS 0/1/2, retained messages, LWT, keep-alive enforcement, and correct client takeover behavior — no authentication required in this phase
@@ -106,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/3 | Planning complete | - |
 | 2. Core Protocol (MQTT 3.1.1) | 0/TBD | Not started | - |
 | 3. Message Dispatch | 0/TBD | Not started | - |
 | 4. Security | 0/TBD | Not started | - |
