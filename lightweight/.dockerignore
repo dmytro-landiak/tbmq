@@ -1,0 +1,8 @@
+.planning
+.git
+.gitignore
+*.md
+target/
+docker/
+.idea
+*.iml
