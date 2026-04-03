@@ -12,7 +12,10 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] RocksDB embedded storage replacing PostgreSQL for durable state (credentials, ACLs) — Validated in Phase 1: Foundation
+- [x] In-process cache replacing Redis/Valkey for coordination primitives — Validated in Phase 1: Foundation (Caffeine)
+- [x] Basic Prometheus-compatible metrics endpoint — Validated in Phase 1: Foundation
+- [x] Single Docker image deployment (`docker run -p 1883:1883 thingsboard/tbmq-lightweight`) — Validated in Phase 1: Foundation
 
 ### Active
 
@@ -25,11 +28,7 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 - [ ] MQTT over WebSocket (ws:// and wss://)
 - [ ] Username/password and X.509 certificate-based authentication backed by RocksDB
 - [ ] Topic-level ACL authorization stored in RocksDB
-- [ ] Basic Prometheus-compatible metrics endpoint
-- [ ] Single Docker image deployment (`docker run -p 1883:1883 thingsboard/tbmq-lightweight`)
 - [ ] In-process message dispatch (Disruptor or BlockingQueue) replacing Kafka
-- [ ] RocksDB embedded storage replacing PostgreSQL for durable state (credentials, ACLs)
-- [ ] In-process cache replacing Redis/Valkey for coordination primitives
 
 ### Out of Scope
 
@@ -64,7 +63,7 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Separate repository over configurable mode | Infrastructure layers differ enough that dual-mode branching in main repo creates long-term maintenance cost | — Pending |
-| RocksDB for embedded storage | Battle-tested for embedded KV workloads, already in ThingsBoard ecosystem, small disk footprint | — Pending |
+| RocksDB for embedded storage | Battle-tested for embedded KV workloads, already in ThingsBoard ecosystem, small disk footprint | Validated — Phase 1 |
 | In-process message dispatch over Kafka | Single-node deployment removes need for distributed messaging; in-process queue provides lower latency | — Pending |
 | Clean Session only in R1 | Persistent sessions add significant complexity; defer to R2 to ship core broker faster | — Pending |
 | No Web UI in R1 | Focus on broker core; UI adds frontend build complexity without core value for evaluation use case | — Pending |
@@ -87,4 +86,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-02 after initialization*
+*Last updated: 2026-04-03 after Phase 1 Foundation completion*
