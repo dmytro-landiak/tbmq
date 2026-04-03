@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-foundation-01-PLAN.md
-last_updated: "2026-04-03T11:37:52.907Z"
+stopped_at: Completed 01-foundation-02-PLAN.md
+last_updated: "2026-04-03T11:50:01.087Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-03
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 6 | 2 tasks | 10 files |
+| Phase 01-foundation P02 | 9 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Recent decisions affecting current work:
 - Dispatch: Start `MsgDispatcherService` with `LinkedBlockingQueue` behind `PublishMsgQueueFactory` interface; upgrade to LMAX Disruptor only if benchmarks show saturation
 - [Phase 01-foundation]: Added @EnableAutoConfiguration to TbmqLightweightApplication — unlike parent TBMQ, lightweight standalone project requires explicit auto-config for MeterRegistry and other Spring Boot beans
 - [Phase 01-foundation]: RocksDB SmartLifecycle running flag must be set before schema_version initialization in start() — internal startup logic bypasses public API guards that check the running state
+- [Phase 01-foundation]: spring.config.name=tbmq-lightweight must be in @SpringBootTest properties — main() updateArguments() is not invoked by Spring Test framework
+- [Phase 01-foundation]: management.prometheus.metrics.export.enabled=true must be explicit in yml — Spring Boot 3.5 defaults prometheus export to false
+- [Phase 01-foundation]: CaffeineCacheMetrics.monitor() must use same tags as Spring Boot auto-config [cache, cache.manager, name] to avoid Prometheus tag collision warnings
 
 ### Pending Todos
 
@@ -80,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-03T11:37:52.904Z
-Stopped at: Completed 01-foundation-01-PLAN.md
+Last session: 2026-04-03T11:50:01.085Z
+Stopped at: Completed 01-foundation-02-PLAN.md
 Resume file: None

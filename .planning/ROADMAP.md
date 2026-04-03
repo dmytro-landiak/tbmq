@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 1/3 plans executed
 Plans:
 - [x] 01-01-PLAN.md — Maven project skeleton + RocksDB embedded storage layer
-- [ ] 01-02-PLAN.md — Netty TCP bootstrap + Caffeine cache + Prometheus metrics
+- [x] 01-02-PLAN.md — Netty TCP bootstrap + Caffeine cache + Prometheus metrics
 - [ ] 01-03-PLAN.md — Docker image + container verification checkpoint
 
 ### Phase 2: Core Protocol (MQTT 3.1.1)
