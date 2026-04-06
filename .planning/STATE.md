@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-04-06T12:53:20.001Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-04-06T12:56:39.136Z"
 last_activity: 2026-04-06
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
   percent: 100
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 02 (core-protocol-mqtt-3-1-1) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-06
 
@@ -57,6 +57,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 01-foundation P03 | 4 | 1 tasks | 2 files |
 | Phase 01-foundation P03 | 15 | 2 tasks | 2 files |
 | Phase 02-core-protocol-mqtt-3-1-1 P02 | 2 | 2 tasks | 10 files |
+| Phase 02-core-protocol-mqtt-3-1-1 P01 | 6 | 2 tasks | 26 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Use maven:3.9-eclipse-temurin-17 (not -jammy variant) for Docker build stage — the -jammy suffix tag does not exist for this Maven+JDK combination; build stage OS is irrelevant since only the JAR is copied to runtime
 - [Phase 01-foundation]: Docker: Use maven:3.9-eclipse-temurin-17 (not -jammy) for build stage; runtime MUST be eclipse-temurin:17-jre-jammy (glibc) — Alpine/musl hard-blocked by RocksDB JNI on ARM64
 - [Phase 02-core-protocol-mqtt-3-1-1]: Test scaffold: @Disabled at method level (not class) so Surefire counts pending tests; each annotation includes enabling plan number for traceability
+- [Phase 02-core-protocol-mqtt-3-1-1]: TbTypeActorId uses plain String type (not ActorType enum) — lightweight has no common/data module dependency
+- [Phase 02-core-protocol-mqtt-3-1-1]: ActorSystemConfiguration uses @Value for actor properties to avoid circular bean dependency with DefaultTbActorSystem @Bean
+- [Phase 02-core-protocol-mqtt-3-1-1]: MsgType simplified to 13 Phase 2 types only — no DEVICE_* or INTEGRATION_* entries needed in single-node mode
 
 ### Pending Todos
 
@@ -90,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T12:53:19.998Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-04-06T12:56:39.133Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
