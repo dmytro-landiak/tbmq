@@ -9,21 +9,21 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 
 ### Protocol
 
-- [ ] **PROTO-01**: Broker accepts MQTT 3.1.1 CONNECT packets and completes the connection handshake with CONNACK
-- [ ] **PROTO-02**: Broker handles PUBLISH/PUBACK/PUBREC/PUBREL/PUBCOMP for QoS 0, 1, and 2 message flows
-- [ ] **PROTO-03**: Broker processes SUBSCRIBE/SUBACK and UNSUBSCRIBE/UNSUBACK with correct return codes
-- [ ] **PROTO-04**: Broker responds to PINGREQ with PINGRESP and disconnects clients that exceed keep-alive timeout
-- [ ] **PROTO-05**: Broker stores retained messages in memory and delivers them to new subscribers on matching topics
-- [ ] **PROTO-06**: Broker publishes Last Will and Testament message when a client disconnects ungracefully or exceeds keep-alive
-- [ ] **PROTO-07**: Broker supports Clean Session flag — sessions are in-memory only and not persisted across broker restarts
+- [x] **PROTO-01**: Broker accepts MQTT 3.1.1 CONNECT packets and completes the connection handshake with CONNACK
+- [x] **PROTO-02**: Broker handles PUBLISH/PUBACK/PUBREC/PUBREL/PUBCOMP for QoS 0, 1, and 2 message flows
+- [x] **PROTO-03**: Broker processes SUBSCRIBE/SUBACK and UNSUBSCRIBE/UNSUBACK with correct return codes
+- [x] **PROTO-04**: Broker responds to PINGREQ with PINGRESP and disconnects clients that exceed keep-alive timeout
+- [x] **PROTO-05**: Broker stores retained messages in memory and delivers them to new subscribers on matching topics
+- [x] **PROTO-06**: Broker publishes Last Will and Testament message when a client disconnects ungracefully or exceeds keep-alive
+- [x] **PROTO-07**: Broker supports Clean Session flag — sessions are in-memory only and not persisted across broker restarts
 - [ ] **PROTO-08**: Broker accepts MQTT 5.0 CONNECT packets and negotiates protocol version with 3.1.1 clients
 - [ ] **PROTO-09**: Broker handles MQTT 5.0 properties: session expiry interval, user properties, reason codes, and topic aliases
 - [ ] **PROTO-10**: Broker supports MQTT 5.0 shared subscriptions ($share/group/topic) for load-balanced message delivery
-- [ ] **PROTO-11**: Broker correctly handles client takeover (new connection with same client ID replaces existing session) including LWT behavior
+- [x] **PROTO-11**: Broker correctly handles client takeover (new connection with same client ID replaces existing session) including LWT behavior
 
 ### Transport
 
-- [ ] **TRAN-01**: Broker listens on configurable TCP port (default 1883) for plain MQTT connections
+- [x] **TRAN-01**: Broker listens on configurable TCP port (default 1883) for plain MQTT connections
 - [ ] **TRAN-02**: Broker supports TLS-encrypted MQTT connections via mounted server certificate and key files
 - [ ] **TRAN-03**: Broker accepts MQTT over WebSocket connections on configurable port (ws://)
 - [ ] **TRAN-04**: Broker accepts MQTT over secure WebSocket connections (wss://) with correct subprotocol header handling
@@ -101,15 +101,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OPS-04 | Phase 1 | Complete |
 | OPS-05 | Phase 1 | Complete |
 | OPS-06 | Phase 1 | Complete |
-| PROTO-01 | Phase 2 | Pending |
-| PROTO-02 | Phase 2 | Pending |
-| PROTO-03 | Phase 2 | Pending |
-| PROTO-04 | Phase 2 | Pending |
-| PROTO-05 | Phase 2 | Pending |
-| PROTO-06 | Phase 2 | Pending |
-| PROTO-07 | Phase 2 | Pending |
-| PROTO-11 | Phase 2 | Pending |
-| TRAN-01 | Phase 2 | Pending |
+| PROTO-01 | Phase 2 | Complete |
+| PROTO-02 | Phase 2 | Complete |
+| PROTO-03 | Phase 2 | Complete |
+| PROTO-04 | Phase 2 | Complete |
+| PROTO-05 | Phase 2 | Complete |
+| PROTO-06 | Phase 2 | Complete |
+| PROTO-07 | Phase 2 | Complete |
+| PROTO-11 | Phase 2 | Complete |
+| TRAN-01 | Phase 2 | Complete |
 | INFR-01 | Phase 3 | Pending |
 | INFR-04 | Phase 3 | Pending |
 | AUTH-01 | Phase 4 | Pending |

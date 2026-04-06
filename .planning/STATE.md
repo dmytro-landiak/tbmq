@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 2 context gathered
-last_updated: "2026-04-06T12:05:58.821Z"
-last_activity: 2026-04-03
+status: executing
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-04-06T12:53:20.001Z"
+last_activity: 2026-04-06
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 8
+  completed_plans: 4
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** A fully functional MQTT broker that starts with a single `docker run` command and requires zero external infrastructure
-**Current focus:** Phase 02 — core-protocol (MQTT 3.1.1)
+**Current focus:** Phase 02 — core-protocol-mqtt-3-1-1
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-03
+Phase: 02 (core-protocol-mqtt-3-1-1) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-04-06
 
 Progress: [████████████████████] 3/3 plans (100%)
 
@@ -56,6 +56,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 01-foundation P02 | 9 | 2 tasks | 10 files |
 | Phase 01-foundation P03 | 4 | 1 tasks | 2 files |
 | Phase 01-foundation P03 | 15 | 2 tasks | 2 files |
+| Phase 02-core-protocol-mqtt-3-1-1 P02 | 2 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,7 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: CaffeineCacheMetrics.monitor() must use same tags as Spring Boot auto-config [cache, cache.manager, name] to avoid Prometheus tag collision warnings
 - [Phase 01-foundation]: Use maven:3.9-eclipse-temurin-17 (not -jammy variant) for Docker build stage — the -jammy suffix tag does not exist for this Maven+JDK combination; build stage OS is irrelevant since only the JAR is copied to runtime
 - [Phase 01-foundation]: Docker: Use maven:3.9-eclipse-temurin-17 (not -jammy) for build stage; runtime MUST be eclipse-temurin:17-jre-jammy (glibc) — Alpine/musl hard-blocked by RocksDB JNI on ARM64
+- [Phase 02-core-protocol-mqtt-3-1-1]: Test scaffold: @Disabled at method level (not class) so Surefire counts pending tests; each annotation includes enabling plan number for traceability
 
 ### Pending Todos
 
@@ -88,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T12:05:58.818Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-core-protocol-mqtt-3-1-1/02-CONTEXT.md
+Last session: 2026-04-06T12:53:19.998Z
+Stopped at: Completed 02-02-PLAN.md
+Resume file: None
