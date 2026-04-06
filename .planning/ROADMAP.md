@@ -53,7 +53,7 @@ Plans:
 - [x] 02-01-PLAN.md — Actor framework port + session/protocol infrastructure types
 - [x] 02-02-PLAN.md — Integration test scaffold (Paho dependency + @Disabled test stubs)
 - [x] 02-03-PLAN.md — Netty MQTT pipeline + CONNECT/CONNACK + keep-alive + PING
-- [ ] 02-04-PLAN.md — Subscription registry + PUBLISH QoS 0/1/2 + SUBSCRIBE/UNSUBSCRIBE
+- [x] 02-04-PLAN.md — Subscription registry + PUBLISH QoS 0/1/2 + SUBSCRIBE/UNSUBSCRIBE
 - [ ] 02-05-PLAN.md — Retained messages + LWT + client takeover
 
 ### Phase 3: Message Dispatch
