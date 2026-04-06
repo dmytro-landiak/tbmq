@@ -15,13 +15,18 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.server;
 
+import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
@@ -32,11 +37,19 @@ import org.thingsboard.mqtt.broker.lightweight.actors.TbTypeActorId;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.ClientActorCreator;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttConnectMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttDisconnectMsg;
+import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttPubAckMsg;
+import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttPubCompMsg;
+import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttPubRecMsg;
+import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttPubRelMsg;
+import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttPublishMsg;
+import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttSubscribeMsg;
+import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttUnsubscribeMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.PingMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
+import org.thingsboard.mqtt.broker.lightweight.service.subscription.SubscriptionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionCtx;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.DisconnectReasonType;
@@ -54,7 +67,7 @@ import java.util.UUID;
  *   <li>CONNECT — creates actor, sends SessionInitMsg + MqttConnectMsg</li>
  *   <li>DISCONNECT — sends MqttDisconnectMsg to actor</li>
  *   <li>PINGREQ — sends PingMsg to actor</li>
- *   <li>PUBLISH/SUBSCRIBE/UNSUBSCRIBE — stubbed for Plan 04</li>
+ *   <li>PUBLISH/SUBSCRIBE/UNSUBSCRIBE/PUBACK/PUBREC/PUBREL/PUBCOMP — routed to actor</li>
  *   <li>Keep-alive timeout via IdleStateEvent</li>
  *   <li>Channel close via channelInactive</li>
  * </ul>
@@ -69,6 +82,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
     private final ClientSessionRegistry sessionRegistry;
     private final MqttMessageGenerator messageGenerator;
     private final MqttConfiguration mqttConfig;
+    private final SubscriptionRegistry subscriptionRegistry;
 
     /** Session context — null until CONNECT is processed. */
     private ClientSessionCtx sessionCtx;
@@ -116,25 +130,86 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
             case CONNECT -> processConnect(ctx, (MqttConnectMessage) msg);
             case DISCONNECT -> processDisconnect(ctx);
             case PINGREQ -> processPing();
-            case PUBLISH -> log.debug("[{}] PUBLISH received, will be handled in Plan 04",
-                    sessionCtx != null ? sessionCtx.getClientId() : "unknown");
-            case SUBSCRIBE -> log.debug("[{}] SUBSCRIBE received, will be handled in Plan 04",
-                    sessionCtx != null ? sessionCtx.getClientId() : "unknown");
-            case UNSUBSCRIBE -> log.debug("[{}] UNSUBSCRIBE received, will be handled in Plan 04",
-                    sessionCtx != null ? sessionCtx.getClientId() : "unknown");
-            case PUBACK -> log.debug("[{}] PUBACK received, will be handled in Plan 04",
-                    sessionCtx != null ? sessionCtx.getClientId() : "unknown");
-            case PUBREC -> log.debug("[{}] PUBREC received, will be handled in Plan 04",
-                    sessionCtx != null ? sessionCtx.getClientId() : "unknown");
-            case PUBREL -> log.debug("[{}] PUBREL received, will be handled in Plan 04",
-                    sessionCtx != null ? sessionCtx.getClientId() : "unknown");
-            case PUBCOMP -> log.debug("[{}] PUBCOMP received, will be handled in Plan 04",
-                    sessionCtx != null ? sessionCtx.getClientId() : "unknown");
+            case PUBLISH -> processPublish((MqttPublishMessage) msg);
+            case SUBSCRIBE -> processSubscribe((MqttSubscribeMessage) msg);
+            case UNSUBSCRIBE -> processUnsubscribe((MqttUnsubscribeMessage) msg);
+            case PUBACK -> processPubAck(msg);
+            case PUBREC -> processPubRec(msg);
+            case PUBREL -> processPubRel(msg);
+            case PUBCOMP -> processPubComp(msg);
             default -> {
                 log.warn("Unhandled MQTT message type: {}", msgType);
                 disconnect(ctx, DisconnectReasonType.ON_PROTOCOL_ERROR, "Unhandled message type: " + msgType);
             }
         }
+    }
+
+    private void processPublish(MqttPublishMessage mqttPublishMessage) {
+        if (sessionCtx == null) {
+            return;
+        }
+        // CRITICAL: Copy payload bytes BEFORE the finally block releases the ByteBuf
+        byte[] payloadBytes = ByteBufUtil.getBytes(mqttPublishMessage.payload());
+        String topicName = mqttPublishMessage.variableHeader().topicName();
+        int qos = mqttPublishMessage.fixedHeader().qosLevel().value();
+        boolean retain = mqttPublishMessage.fixedHeader().isRetain();
+        boolean dup = mqttPublishMessage.fixedHeader().isDup();
+        int packetId = mqttPublishMessage.variableHeader().packetId();
+
+        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        actorSystem.tell(actorId, new MqttPublishMsg(topicName, qos, payloadBytes, retain, dup, packetId));
+    }
+
+    private void processSubscribe(MqttSubscribeMessage mqttSubscribeMessage) {
+        if (sessionCtx == null) {
+            return;
+        }
+        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        actorSystem.tell(actorId, new MqttSubscribeMsg(mqttSubscribeMessage));
+    }
+
+    private void processUnsubscribe(MqttUnsubscribeMessage mqttUnsubscribeMessage) {
+        if (sessionCtx == null) {
+            return;
+        }
+        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        actorSystem.tell(actorId, new MqttUnsubscribeMsg(mqttUnsubscribeMessage));
+    }
+
+    private void processPubAck(MqttMessage msg) {
+        if (sessionCtx == null) {
+            return;
+        }
+        int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
+        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        actorSystem.tell(actorId, new MqttPubAckMsg(packetId));
+    }
+
+    private void processPubRec(MqttMessage msg) {
+        if (sessionCtx == null) {
+            return;
+        }
+        int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
+        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        actorSystem.tell(actorId, new MqttPubRecMsg(packetId));
+    }
+
+    private void processPubRel(MqttMessage msg) {
+        if (sessionCtx == null) {
+            return;
+        }
+        int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
+        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        actorSystem.tell(actorId, new MqttPubRelMsg(packetId));
+    }
+
+    private void processPubComp(MqttMessage msg) {
+        if (sessionCtx == null) {
+            return;
+        }
+        int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
+        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        actorSystem.tell(actorId, new MqttPubCompMsg(packetId));
     }
 
     private void processConnect(ChannelHandlerContext ctx, MqttConnectMessage connectMsg) {
@@ -156,7 +231,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
 
         TbTypeActorId actorId = new TbTypeActorId("client", clientId);
         actorSystem.createRootActor(CLIENT_DISPATCHER, new ClientActorCreator(
-                clientId, sessionRegistry, messageGenerator, mqttConfig));
+                clientId, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry));
 
         actorSystem.tell(actorId, new SessionInitMsg(sessionCtx));
         actorSystem.tell(actorId, new MqttConnectMsg(connectMsg, sessionCtx));

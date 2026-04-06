@@ -22,6 +22,7 @@ import org.thingsboard.mqtt.broker.lightweight.actors.TbActorId;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbTypeActorId;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
+import org.thingsboard.mqtt.broker.lightweight.service.subscription.SubscriptionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
 
 /**
@@ -38,6 +39,7 @@ public class ClientActorCreator implements TbActorCreator {
     private final ClientSessionRegistry sessionRegistry;
     private final MqttMessageGenerator messageGenerator;
     private final MqttConfiguration mqttConfig;
+    private final SubscriptionRegistry subscriptionRegistry;
 
     @Override
     public TbActorId createActorId() {
@@ -46,7 +48,7 @@ public class ClientActorCreator implements TbActorCreator {
 
     @Override
     public TbActor createActor() {
-        return new ClientActor(sessionRegistry, messageGenerator, mqttConfig);
+        return new ClientActor(sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry);
     }
 
 }
