@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-04-06T12:56:39.136Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-04-06T13:05:52.283Z"
 last_activity: 2026-04-06
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
+  completed_plans: 6
   percent: 100
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 02 (core-protocol-mqtt-3-1-1) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-04-06
 
@@ -58,6 +58,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 01-foundation P03 | 15 | 2 tasks | 2 files |
 | Phase 02-core-protocol-mqtt-3-1-1 P02 | 2 | 2 tasks | 10 files |
 | Phase 02-core-protocol-mqtt-3-1-1 P01 | 6 | 2 tasks | 26 files |
+| Phase 02-core-protocol-mqtt-3-1-1 P03 | 6 | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 02-core-protocol-mqtt-3-1-1]: TbTypeActorId uses plain String type (not ActorType enum) — lightweight has no common/data module dependency
 - [Phase 02-core-protocol-mqtt-3-1-1]: ActorSystemConfiguration uses @Value for actor properties to avoid circular bean dependency with DefaultTbActorSystem @Bean
 - [Phase 02-core-protocol-mqtt-3-1-1]: MsgType simplified to 13 Phase 2 types only — no DEVICE_* or INTEGRATION_* entries needed in single-node mode
+- [Phase 02-core-protocol-mqtt-3-1-1]: SessionCloseMsg reuses DISCONNECT_MSG type to avoid MsgType enum additions; actor distinguishes by instanceof check
+- [Phase 02-core-protocol-mqtt-3-1-1]: Raw socket buildMqttConnectPacket() helper used for keep-alive expiry test — Paho auto-sends PINGREQ and cannot simulate idle clients
+- [Phase 02-core-protocol-mqtt-3-1-1]: PingMsg is singleton (INSTANCE pattern) — PINGREQ carries no data per spec, eliminating per-message allocation
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T12:56:39.133Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-04-06T13:05:52.280Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None
