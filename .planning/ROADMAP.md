@@ -48,7 +48,13 @@ Plans:
   3. A retained message published to a topic is delivered to a new subscriber matching that topic immediately upon SUBSCRIBE, even if the original publisher is disconnected
   4. A client that exceeds its keep-alive timeout is disconnected and its LWT message is delivered to subscribers; a client that disconnects ungracefully also triggers LWT delivery
   5. When a second client connects with the same ClientID as an existing session, the existing session is closed (LWT suppressed for takeover), and the new session takes over without stale state
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 02-01-PLAN.md — Actor framework port + session/protocol infrastructure types
+- [ ] 02-02-PLAN.md — Integration test scaffold (Paho dependency + @Disabled test stubs)
+- [ ] 02-03-PLAN.md — Netty MQTT pipeline + CONNECT/CONNACK + keep-alive + PING
+- [ ] 02-04-PLAN.md — Subscription registry + PUBLISH QoS 0/1/2 + SUBSCRIBE/UNSUBSCRIBE
+- [ ] 02-05-PLAN.md — Retained messages + LWT + client takeover
 
 ### Phase 3: Message Dispatch
 **Goal**: Publish routing is handled by a standalone in-process dispatch service behind an abstracted interface, with wildcard subscription matching and backpressure so Netty I/O threads are never blocked
@@ -111,7 +117,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-04-03 |
-| 2. Core Protocol (MQTT 3.1.1) | 0/TBD | Not started | - |
+| 2. Core Protocol (MQTT 3.1.1) | 0/5 | Planning complete | - |
 | 3. Message Dispatch | 0/TBD | Not started | - |
 | 4. Security | 0/TBD | Not started | - |
 | 5. WebSocket Transport | 0/TBD | Not started | - |
