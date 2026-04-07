@@ -16,14 +16,15 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 - [x] In-process cache replacing Redis/Valkey for coordination primitives — Validated in Phase 1: Foundation (Caffeine)
 - [x] Basic Prometheus-compatible metrics endpoint — Validated in Phase 1: Foundation
 - [x] Single Docker image deployment (`docker run -p 1883:1883 thingsboard/tbmq-lightweight`) — Validated in Phase 1: Foundation
+- [x] Full MQTT 3.1.1 protocol support (CONNECT, PUBLISH, SUBSCRIBE, UNSUBSCRIBE, PING, DISCONNECT with QoS 0/1/2) — Validated in Phase 2: Core Protocol
+- [x] In-memory session state for active client sessions — Validated in Phase 2: Core Protocol
+- [x] Non-persistent messaging to currently connected subscribers (Clean Session only in R1) — Validated in Phase 2: Core Protocol
+- [x] Retained messages stored in memory for broker lifetime — Validated in Phase 2: Core Protocol
+- [x] Last Will and Testament (LWT) support — Validated in Phase 2: Core Protocol
 
 ### Active
 
-- [ ] Full MQTT 3.1.1 and 5.0 protocol support (CONNECT, PUBLISH, SUBSCRIBE, UNSUBSCRIBE, PING, DISCONNECT with QoS 0/1/2)
-- [ ] In-memory session state for active client sessions
-- [ ] Non-persistent messaging to currently connected subscribers (Clean Session/Clean Start only in R1)
-- [ ] Retained messages stored in memory for broker lifetime
-- [ ] Last Will and Testament (LWT) support
+- [ ] Full MQTT 5.0 protocol support (session expiry, user properties, reason codes, topic aliases, shared subscriptions)
 - [ ] TLS termination via mounted certificates
 - [ ] MQTT over WebSocket (ws:// and wss://)
 - [ ] Username/password and X.509 certificate-based authentication backed by RocksDB
@@ -65,7 +66,7 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 | Separate repository over configurable mode | Infrastructure layers differ enough that dual-mode branching in main repo creates long-term maintenance cost | — Pending |
 | RocksDB for embedded storage | Battle-tested for embedded KV workloads, already in ThingsBoard ecosystem, small disk footprint | Validated — Phase 1 |
 | In-process message dispatch over Kafka | Single-node deployment removes need for distributed messaging; in-process queue provides lower latency | — Pending |
-| Clean Session only in R1 | Persistent sessions add significant complexity; defer to R2 to ship core broker faster | — Pending |
+| Clean Session only in R1 | Persistent sessions add significant complexity; defer to R2 to ship core broker faster | Validated — Phase 2 |
 | No Web UI in R1 | Focus on broker core; UI adds frontend build complexity without core value for evaluation use case | — Pending |
 
 ## Evolution
@@ -86,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-03 after Phase 1 Foundation completion*
+*Last updated: 2026-04-07 after Phase 2 Core Protocol (MQTT 3.1.1) completion*
