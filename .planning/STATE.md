@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-04-06T13:16:09.778Z"
-last_activity: 2026-04-06
+stopped_at: Completed 02-05-PLAN.md
+last_updated: "2026-04-07T15:36:45.885Z"
+last_activity: 2026-04-07
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 100
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 02 (core-protocol-mqtt-3-1-1) — EXECUTING
-Plan: 5 of 5
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-04-06
+Last activity: 2026-04-07
 
 Progress: [████████████████████] 3/3 plans (100%)
 
@@ -60,6 +60,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 02-core-protocol-mqtt-3-1-1 P01 | 6 | 2 tasks | 26 files |
 | Phase 02-core-protocol-mqtt-3-1-1 P03 | 6 | 3 tasks | 16 files |
 | Phase 02-core-protocol-mqtt-3-1-1 P04 | 8 | 2 tasks | 19 files |
+| Phase 02-core-protocol-mqtt-3-1-1 P05 | 13 | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ Recent decisions affecting current work:
 - [Phase 02-core-protocol-mqtt-3-1-1]: Raw socket buildMqttConnectPacket() helper used for keep-alive expiry test — Paho auto-sends PINGREQ and cannot simulate idle clients
 - [Phase 02-core-protocol-mqtt-3-1-1]: PingMsg is singleton (INSTANCE pattern) — PINGREQ carries no data per spec, eliminating per-message allocation
 - [Phase 02-core-protocol-mqtt-3-1-1]: DefaultSubscriptionRegistry uses ConcurrentHashMap.compute() for atomic re-subscribe QoS updates; inboundQos2 stores PublishMsg (not Boolean) for QoS 2 delivery on PUBREL; wildcard subscriptions stored but not matched in Phase 2 (exact-match only D-06)
+- [Phase 02-core-protocol-mqtt-3-1-1]: LWT keyed by session UUID (not clientId) for correct takeover isolation: old session and new session have different UUIDs, so their LWT entries don't interfere during client takeover
+- [Phase 02-core-protocol-mqtt-3-1-1]: Raw socket MQTT connect packet used for LWT ungraceful disconnect tests — Paho disconnectForcibly causes 30-70s delays due to internal keepalive timer; raw socket close is immediate and deterministic
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T13:16:09.776Z
-Stopped at: Completed 02-04-PLAN.md
+Last session: 2026-04-07T15:36:45.882Z
+Stopped at: Completed 02-05-PLAN.md
 Resume file: None
