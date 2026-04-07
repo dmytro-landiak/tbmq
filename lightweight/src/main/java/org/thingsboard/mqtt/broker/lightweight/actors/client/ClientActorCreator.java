@@ -22,6 +22,8 @@ import org.thingsboard.mqtt.broker.lightweight.actors.TbActorId;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbTypeActorId;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
+import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsgService;
+import org.thingsboard.mqtt.broker.lightweight.service.mqtt.will.LastWillService;
 import org.thingsboard.mqtt.broker.lightweight.service.subscription.SubscriptionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
 
@@ -40,6 +42,8 @@ public class ClientActorCreator implements TbActorCreator {
     private final MqttMessageGenerator messageGenerator;
     private final MqttConfiguration mqttConfig;
     private final SubscriptionRegistry subscriptionRegistry;
+    private final RetainedMsgService retainedMsgService;
+    private final LastWillService lastWillService;
 
     @Override
     public TbActorId createActorId() {
@@ -48,7 +52,8 @@ public class ClientActorCreator implements TbActorCreator {
 
     @Override
     public TbActor createActor() {
-        return new ClientActor(sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry);
+        return new ClientActor(sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
+                retainedMsgService, lastWillService);
     }
 
 }

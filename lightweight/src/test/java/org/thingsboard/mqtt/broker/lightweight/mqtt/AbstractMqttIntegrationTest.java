@@ -42,7 +42,7 @@ public abstract class AbstractMqttIntegrationTest {
     @Autowired
     protected MqttTcpServerBootstrap mqttServer;
 
-    private final List<MqttClient> clients = new ArrayList<>();
+    protected final List<MqttClient> clients = new ArrayList<>();
 
     /**
      * Returns the broker URL for test clients to connect to.

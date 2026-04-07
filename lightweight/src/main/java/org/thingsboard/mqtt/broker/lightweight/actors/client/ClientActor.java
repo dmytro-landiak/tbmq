@@ -42,10 +42,15 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.PublishMsg;
+import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsg;
+import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsgService;
+import org.thingsboard.mqtt.broker.lightweight.service.mqtt.will.LastWillService;
+import org.thingsboard.mqtt.broker.lightweight.service.mqtt.will.WillMessage;
 import org.thingsboard.mqtt.broker.lightweight.service.subscription.Subscription;
 import org.thingsboard.mqtt.broker.lightweight.service.subscription.SubscriptionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionCtx;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
+import org.thingsboard.mqtt.broker.lightweight.session.DisconnectReasonType;
 import org.thingsboard.mqtt.broker.lightweight.session.SessionState;
 
 import java.util.ArrayList;
@@ -61,9 +66,11 @@ import java.util.Set;
  * <p>Message handling:
  * <ul>
  *   <li>SESSION_INIT_MSG — stores the session context</li>
- *   <li>CONNECT_MSG — validates, registers session, sends CONNACK, configures keep-alive</li>
- *   <li>DISCONNECT_MSG — removes session, closes channel, destroys actor</li>
+ *   <li>CONNECT_MSG — validates, registers session, stores LWT, handles takeover, sends CONNACK</li>
+ *   <li>DISCONNECT_MSG — conditionally delivers LWT, cleans up, closes channel</li>
  *   <li>PING_MSG — writes PINGRESP back to client</li>
+ *   <li>SUBSCRIBE_MSG — registers subscriptions, delivers retained messages</li>
+ *   <li>PUBLISH_MSG — stores retained messages if retain=1, delivers to subscribers</li>
  * </ul>
  *
  * <p>CRITICAL: Never block the actor thread. All channel writes use fire-and-forget
@@ -77,6 +84,8 @@ public class ClientActor extends AbstractTbActor {
     private final MqttMessageGenerator messageGenerator;
     private final MqttConfiguration mqttConfig;
     private final SubscriptionRegistry subscriptionRegistry;
+    private final RetainedMsgService retainedMsgService;
+    private final LastWillService lastWillService;
 
     /** Session context set on SESSION_INIT_MSG. */
     private ClientSessionCtx sessionCtx;
@@ -133,16 +142,36 @@ public class ClientActor extends AbstractTbActor {
         sessionCtx.setCleanSession(true);
         sessionCtx.setKeepAliveSeconds(keepAliveSeconds);
 
-        // LWT is stubbed for Plan 05
+        // Store LWT if will flag is set
         if (willFlag) {
-            log.debug("[{}] LWT configured — will be processed in Plan 05", clientId);
+            String willTopic = connectMessage.payload().willTopic();
+            byte[] willPayload = connectMessage.payload().willMessageInBytes();
+            int willQos = connectMessage.variableHeader().willQos();
+            boolean willRetain = connectMessage.variableHeader().isWillRetain();
+            WillMessage will = WillMessage.builder()
+                    .topicName(willTopic)
+                    .payload(willPayload != null ? willPayload : new byte[0])
+                    .qos(willQos)
+                    .retain(willRetain)
+                    .build();
+            lastWillService.storeWill(sessionCtx.getSessionId(), will);
+            log.debug("[{}] LWT stored for session {} on topic '{}'", clientId, sessionCtx.getSessionId(), willTopic);
         }
 
-        // Register session — returns old session if client takeover (Plan 05)
+        // Register session — handle client takeover if a session with the same clientId exists
         ClientSessionCtx oldSession = sessionRegistry.registerSession(clientId, sessionCtx);
-        if (oldSession != null) {
-            log.debug("[{}] Client takeover — closing old session (full implementation in Plan 05)", clientId);
-            oldSession.getChannel().close();
+        if (oldSession != null && oldSession.getState() == SessionState.CONNECTED) {
+            log.info("[{}] Client takeover — displacing existing session {}", clientId, oldSession.getSessionId());
+            // Suppress LWT for the displaced session (ON_CONFLICTING_SESSIONS.allowsLastWillOnDisconnect() == false)
+            lastWillService.removeWillWithoutDelivery(oldSession.getSessionId());
+            // Remove old subscriptions — new session starts clean
+            subscriptionRegistry.removeAllSubscriptions(clientId);
+            // Close the old session's channel
+            oldSession.setState(SessionState.DISCONNECTING);
+            if (oldSession.getChannel().channel().isActive()) {
+                oldSession.getChannel().close();
+            }
+            oldSession.setState(SessionState.DISCONNECTED);
         }
 
         // Send CONNACK — sessionPresent always false in R1 (clean session only)
@@ -164,8 +193,6 @@ public class ClientActor extends AbstractTbActor {
     }
 
     private void processDisconnect(TbActorMsg msg) {
-        boolean channelAlreadyClosed = (msg instanceof SessionCloseMsg);
-
         if (sessionCtx == null) {
             log.warn("[{}] Disconnect requested but no session context", clientId);
             return;
@@ -175,17 +202,44 @@ public class ClientActor extends AbstractTbActor {
             return; // already disconnected
         }
 
-        sessionCtx.setState(SessionState.DISCONNECTING);
-
-        // LWT is stubbed for Plan 05
-        boolean allowsLwt = (msg instanceof MqttDisconnectMsg disconnectMsg)
-                ? disconnectMsg.getReasonType().allowsLastWillOnDisconnect()
-                : (msg instanceof SessionCloseMsg closeMsg) && closeMsg.getReasonType().allowsLastWillOnDisconnect();
-
-        if (allowsLwt) {
-            log.debug("[{}] LWT would fire here — will be implemented in Plan 05", clientId);
+        DisconnectReasonType reasonType;
+        boolean channelAlreadyClosed;
+        if (msg instanceof MqttDisconnectMsg disconnectMsg) {
+            reasonType = disconnectMsg.getReasonType();
+            channelAlreadyClosed = false;
+        } else if (msg instanceof SessionCloseMsg closeMsg) {
+            reasonType = closeMsg.getReasonType();
+            channelAlreadyClosed = true;
+        } else {
+            reasonType = DisconnectReasonType.ON_ERROR;
+            channelAlreadyClosed = false;
         }
 
+        sessionCtx.setState(SessionState.DISCONNECTING);
+
+        // Handle LWT based on disconnect reason
+        if (reasonType.allowsLastWillOnDisconnect()) {
+            // Ungraceful disconnect — deliver LWT
+            lastWillService.removeWill(sessionCtx.getSessionId()).ifPresent(will -> {
+                log.debug("[{}] Delivering LWT on topic '{}' (reason: {})", clientId, will.getTopicName(), reasonType);
+                // Handle retain flag on LWT
+                if (will.isRetain()) {
+                    if (will.getPayload().length == 0) {
+                        retainedMsgService.clearRetainedMessage(will.getTopicName());
+                    } else {
+                        retainedMsgService.setRetainedMessage(will.getTopicName(),
+                                RetainedMsg.builder().topicName(will.getTopicName()).qos(will.getQos()).payload(will.getPayload()).build());
+                    }
+                }
+                // Deliver LWT as a regular publish to subscribers
+                deliverToSubscribers(will.getTopicName(), will.getQos(), will.getPayload(), false);
+            });
+        } else {
+            // Clean disconnect or takeover — suppress LWT
+            lastWillService.removeWillWithoutDelivery(sessionCtx.getSessionId());
+        }
+
+        // Clean up subscriptions and QoS state
         subscriptionRegistry.removeAllSubscriptions(clientId);
         sessionCtx.getInboundQos2().clear();
         sessionCtx.getOutboundQos1().clear();
@@ -204,7 +258,7 @@ public class ClientActor extends AbstractTbActor {
             ctx.stop(ctx.getSelf());
         }
 
-        log.info("[{}] Client disconnected", clientId);
+        log.info("[{}] Client disconnected (reason: {})", clientId, reasonType);
     }
 
     private void processSubscribe(MqttSubscribeMsg msg) {
@@ -222,7 +276,28 @@ public class ClientActor extends AbstractTbActor {
             subscriptionRegistry.subscribe(topicFilter, subscription);
             log.debug("[{}] Subscribed to '{}' with QoS {}", clientId, topicFilter, grantedQos);
 
-            // Deliver retained messages for this topic (STUBBED for Plan 05)
+            // Deliver retained message for this exact topic (D-09: exact match only in Phase 2)
+            final int finalGrantedQos = grantedQos;
+            retainedMsgService.getRetainedMessage(topicFilter).ifPresent(retained -> {
+                int deliveryQos = Math.min(retained.getQos(), finalGrantedQos);
+                log.debug("[{}] Delivering retained message for topic '{}' (qos={})", clientId, topicFilter, deliveryQos);
+                if (deliveryQos == 0) {
+                    sessionCtx.getChannel().writeAndFlush(
+                            messageGenerator.createPublish(retained.getTopicName(), 0, retained.getPayload(), true, false, 0));
+                } else if (deliveryQos == 1) {
+                    int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
+                    sessionCtx.getOutboundQos1().put(pktId, PublishMsg.builder()
+                            .topicName(retained.getTopicName()).qos(1).payload(retained.getPayload()).retain(true).packetId(pktId).build());
+                    sessionCtx.getChannel().writeAndFlush(
+                            messageGenerator.createPublish(retained.getTopicName(), 1, retained.getPayload(), true, false, pktId));
+                } else {
+                    int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
+                    sessionCtx.getOutboundQos2().put(pktId, PublishMsg.builder()
+                            .topicName(retained.getTopicName()).qos(2).payload(retained.getPayload()).retain(true).packetId(pktId).build());
+                    sessionCtx.getChannel().writeAndFlush(
+                            messageGenerator.createPublish(retained.getTopicName(), 2, retained.getPayload(), true, false, pktId));
+                }
+            });
         }
 
         sessionCtx.getChannel().writeAndFlush(
@@ -274,10 +349,20 @@ public class ClientActor extends AbstractTbActor {
             return;
         }
 
-        // Retained message storage (STUBBED for Plan 05)
+        // Handle retained flag per MQTT 3.1.1 spec section 3.3.1.3
+        if (retain) {
+            if (payload.length == 0) {
+                // Empty payload with retain=1 CLEARS the retained message
+                retainedMsgService.clearRetainedMessage(topicName);
+            } else {
+                // Non-empty payload with retain=1 SETS the retained message
+                retainedMsgService.setRetainedMessage(topicName,
+                        RetainedMsg.builder().topicName(topicName).qos(publishQos).payload(payload).build());
+            }
+        }
 
         // Deliver to subscribers (QoS 0 and QoS 1 deliver immediately)
-        deliverToSubscribers(topicName, publishQos, payload);
+        deliverToSubscribers(topicName, publishQos, payload, false);
     }
 
     private void processPubAck(MqttPubAckMsg msg) {
@@ -299,8 +384,18 @@ public class ClientActor extends AbstractTbActor {
         // Retrieve stored PublishMsg from inbound QoS 2 map
         Object stored = sessionCtx.getInboundQos2().remove(packetId);
         if (stored instanceof PublishMsg publishMsg) {
+            boolean retain = publishMsg.isRetain();
+            // Handle retained flag for QoS 2 (deferred to PUBREL)
+            if (retain) {
+                if (publishMsg.getPayload().length == 0) {
+                    retainedMsgService.clearRetainedMessage(publishMsg.getTopicName());
+                } else {
+                    retainedMsgService.setRetainedMessage(publishMsg.getTopicName(),
+                            RetainedMsg.builder().topicName(publishMsg.getTopicName()).qos(2).payload(publishMsg.getPayload()).build());
+                }
+            }
             // Deliver to subscribers now (exactly once)
-            deliverToSubscribers(publishMsg.getTopicName(), 2, publishMsg.getPayload());
+            deliverToSubscribers(publishMsg.getTopicName(), 2, publishMsg.getPayload(), false);
         } else {
             log.warn("[{}] PUBREL received for unknown packetId={}", clientId, packetId);
         }
@@ -319,8 +414,11 @@ public class ClientActor extends AbstractTbActor {
      *
      * <p>Per D-04, delivery is inline (direct channel write) without a dispatch queue.
      * QoS is downgraded to min(publishQos, subscriptionQos) per MQTT spec.
+     *
+     * @param retain whether to set the retain flag on the delivered message
+     *               (true for retained messages delivered on subscribe, false for live publishes)
      */
-    private void deliverToSubscribers(String topicName, int publishQos, byte[] payload) {
+    private void deliverToSubscribers(String topicName, int publishQos, byte[] payload, boolean retain) {
         Set<Subscription> subs = subscriptionRegistry.getSubscriptions(topicName);
         for (Subscription sub : subs) {
             ClientSessionCtx subscriberCtx = sub.getSessionCtx();
@@ -332,24 +430,24 @@ public class ClientActor extends AbstractTbActor {
             if (deliveryQos == 0) {
                 // QoS 0: fire and forget
                 subscriberCtx.getChannel().writeAndFlush(
-                        messageGenerator.createPublish(topicName, 0, payload, false, false, 0));
+                        messageGenerator.createPublish(topicName, 0, payload, retain, false, 0));
             } else if (deliveryQos == 1) {
                 // QoS 1: assign packet ID, track in outbound map
                 int outPktId = subscriberCtx.getPacketIdAllocator().nextPacketId();
                 PublishMsg outMsg = PublishMsg.builder()
-                        .topicName(topicName).qos(1).payload(payload).retain(false).dup(false).packetId(outPktId)
+                        .topicName(topicName).qos(1).payload(payload).retain(retain).dup(false).packetId(outPktId)
                         .build();
                 subscriberCtx.getOutboundQos1().put(outPktId, outMsg);
                 subscriberCtx.getChannel().writeAndFlush(
-                        messageGenerator.createPublish(topicName, 1, payload, false, false, outPktId));
+                        messageGenerator.createPublish(topicName, 1, payload, retain, false, outPktId));
             } else { // deliveryQos == 2
                 int outPktId = subscriberCtx.getPacketIdAllocator().nextPacketId();
                 PublishMsg outMsg = PublishMsg.builder()
-                        .topicName(topicName).qos(2).payload(payload).retain(false).dup(false).packetId(outPktId)
+                        .topicName(topicName).qos(2).payload(payload).retain(retain).dup(false).packetId(outPktId)
                         .build();
                 subscriberCtx.getOutboundQos2().put(outPktId, outMsg);
                 subscriberCtx.getChannel().writeAndFlush(
-                        messageGenerator.createPublish(topicName, 2, payload, false, false, outPktId));
+                        messageGenerator.createPublish(topicName, 2, payload, retain, false, outPktId));
             }
         }
     }

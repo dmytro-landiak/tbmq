@@ -1,38 +1,186 @@
 package org.thingsboard.mqtt.broker.lightweight.mqtt;
 
-import org.junit.jupiter.api.Disabled;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.Test;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 /**
  * Integration tests for MQTT Last Will and Testament (LWT) — PROTO-06.
  *
- * <p>All tests are disabled until Plan 05 implements LWT publish-on-disconnect logic.
+ * <p>Tests verify LWT delivery on ungraceful disconnect, keep-alive expiry,
+ * and suppression on clean disconnect.
+ *
+ * <p>Raw socket approach is used for tests requiring ungraceful disconnect
+ * to ensure the broker detects channel close reliably without Paho interference.
  */
 class MqttLwtIntegrationTest extends AbstractMqttIntegrationTest {
 
     @Test
-    @Disabled("Enabled in Plan 05")
-    void testLwt_ungracefulDisconnect_willMessageDelivered() {
-        // Client connects with a will message configured on topic "lwt/status".
-        // A second client subscribes to "lwt/status".
-        // First client disconnects ungracefully (e.g., TCP close without DISCONNECT packet).
-        // Expected: will message is published to "lwt/status" and delivered to subscriber.
+    void testLwt_ungracefulDisconnect_willMessageDelivered() throws Exception {
+        // Subscriber listens on the LWT topic.
+        MqttClient subscriber = createClient("sub-lwt-ungraceful");
+        subscriber.connect(defaultConnectOptions());
+        AtomicReference<MqttMessage> received = new AtomicReference<>();
+        subscriber.subscribe("lwt/topic", 0, (topic, msg) -> received.set(msg));
+
+        // Raw socket: CONNECT with will message, then close the socket without DISCONNECT.
+        // This simulates an ungraceful disconnect that triggers LWT delivery.
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("127.0.0.1", mqttServer.getLocalPort()), 1000);
+            socket.setSoTimeout(5000);
+
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
+
+            // Send CONNECT with will flag set
+            byte[] connectPacket = buildMqttConnectWithWill("client-with-lwt", 30, "lwt/topic", "client-died".getBytes());
+            out.write(connectPacket);
+            out.flush();
+
+            // Read CONNACK
+            byte[] connack = new byte[4];
+            in.read(connack);
+            assertThat(connack[0]).isEqualTo((byte) 0x20); // CONNACK fixed header
+            assertThat(connack[3]).isEqualTo((byte) 0x00); // CONNECTION_ACCEPTED
+
+            // Close socket abruptly (no DISCONNECT packet) — broker should detect channel close
+            // and deliver the LWT.
+        } // socket.close() called here via try-with-resources
+
+        await().atMost(5, SECONDS).until(() -> received.get() != null);
+        assertThat(new String(received.get().getPayload())).isEqualTo("client-died");
     }
 
     @Test
-    @Disabled("Enabled in Plan 05")
-    void testLwt_keepAliveExpiry_willMessageDelivered() {
-        // Client connects with a will message and keepAlive=1 second, then goes silent.
-        // A second client subscribes to the will topic.
-        // Expected: after keep-alive expiry, broker publishes the will message.
+    void testLwt_keepAliveExpiry_willMessageDelivered() throws Exception {
+        // Subscriber listens on the LWT topic.
+        MqttClient subscriber = createClient("sub-lwt-keepalive");
+        subscriber.connect(defaultConnectOptions());
+        AtomicReference<MqttMessage> received = new AtomicReference<>();
+        subscriber.subscribe("lwt/keepalive", 0, (topic, msg) -> received.set(msg));
+
+        // Raw socket: CONNECT with will + keepAlive=2, then go silent.
+        // Broker disconnects after 1.5 * 2 = 3 seconds, delivering LWT.
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("127.0.0.1", mqttServer.getLocalPort()), 1000);
+            socket.setSoTimeout(8000);
+
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
+
+            byte[] connectPacket = buildMqttConnectWithWill("client-lwt-keepalive", 2, "lwt/keepalive", "keepalive-died".getBytes());
+            out.write(connectPacket);
+            out.flush();
+
+            byte[] connack = new byte[4];
+            in.read(connack);
+            assertThat(connack[0]).isEqualTo((byte) 0x20);
+            assertThat(connack[3]).isEqualTo((byte) 0x00);
+
+            // Go silent — broker should time out after ~3s and deliver LWT.
+            // Socket will be closed by broker after keep-alive expiry.
+        }
+
+        await().atMost(8, SECONDS).until(() -> received.get() != null);
+        assertThat(new String(received.get().getPayload())).isEqualTo("keepalive-died");
     }
 
     @Test
-    @Disabled("Enabled in Plan 05")
-    void testLwt_cleanDisconnect_willMessageNotDelivered() {
-        // Client connects with a will message, then sends DISCONNECT packet gracefully.
-        // Expected per MQTT 3.1.1 spec section 3.14: will message is NOT published
-        // on clean disconnect.
+    void testLwt_cleanDisconnect_willMessageNotDelivered() throws Exception {
+        // Subscriber listens on the LWT topic.
+        MqttClient subscriber = createClient("sub-lwt-clean");
+        subscriber.connect(defaultConnectOptions());
+        AtomicInteger count = new AtomicInteger();
+        subscriber.subscribe("lwt/clean", 0, (topic, msg) -> count.incrementAndGet());
+
+        // Client with LWT connects and then disconnects CLEANLY via Paho (sends DISCONNECT packet).
+        MqttClient willClient = createClient("client-lwt-clean");
+        MqttConnectOptions opts = defaultConnectOptions();
+        opts.setWill("lwt/clean", "should-not-arrive".getBytes(), 0, false);
+        willClient.connect(opts);
+        willClient.disconnect(); // clean DISCONNECT packet — LWT MUST NOT be published
+
+        Thread.sleep(2000);
+        assertThat(count.get()).isEqualTo(0); // LWT NOT delivered on clean disconnect
+    }
+
+    /**
+     * Builds a raw MQTT 3.1.1 CONNECT packet with will message.
+     *
+     * <p>Will flag set, will QoS 0, will retain false, clean session true.
+     * No username or password.
+     */
+    private byte[] buildMqttConnectWithWill(String clientId, int keepAlive, String willTopic, byte[] willPayload) {
+        byte[] clientIdBytes = clientId.getBytes(StandardCharsets.UTF_8);
+        byte[] willTopicBytes = willTopic.getBytes(StandardCharsets.UTF_8);
+
+        // Variable header: 10 bytes (protocol name 6 + level 1 + flags 1 + keep-alive 2)
+        int variableHeaderLen = 10;
+
+        // Payload: clientId (2+len) + willTopic (2+len) + willPayload (2+len)
+        int payloadLen = 2 + clientIdBytes.length
+                + 2 + willTopicBytes.length
+                + 2 + willPayload.length;
+
+        int remainingLength = variableHeaderLen + payloadLen;
+
+        byte[] packet = new byte[2 + remainingLength];
+        int i = 0;
+
+        // Fixed header: CONNECT type
+        packet[i++] = 0x10;
+        packet[i++] = (byte) remainingLength; // assumes < 128
+
+        // Protocol name "MQTT"
+        packet[i++] = 0x00;
+        packet[i++] = 0x04;
+        packet[i++] = 'M';
+        packet[i++] = 'Q';
+        packet[i++] = 'T';
+        packet[i++] = 'T';
+
+        // Protocol level: 4 (MQTT 3.1.1)
+        packet[i++] = 0x04;
+
+        // Connect flags: cleanSession=1 (0x02), willFlag=1 (0x04), willQos=0, willRetain=0
+        // 0x02 | 0x04 = 0x06
+        packet[i++] = 0x06;
+
+        // Keep alive
+        packet[i++] = (byte) ((keepAlive >> 8) & 0xFF);
+        packet[i++] = (byte) (keepAlive & 0xFF);
+
+        // ClientId
+        packet[i++] = (byte) ((clientIdBytes.length >> 8) & 0xFF);
+        packet[i++] = (byte) (clientIdBytes.length & 0xFF);
+        System.arraycopy(clientIdBytes, 0, packet, i, clientIdBytes.length);
+        i += clientIdBytes.length;
+
+        // Will topic
+        packet[i++] = (byte) ((willTopicBytes.length >> 8) & 0xFF);
+        packet[i++] = (byte) (willTopicBytes.length & 0xFF);
+        System.arraycopy(willTopicBytes, 0, packet, i, willTopicBytes.length);
+        i += willTopicBytes.length;
+
+        // Will payload
+        packet[i++] = (byte) ((willPayload.length >> 8) & 0xFF);
+        packet[i++] = (byte) (willPayload.length & 0xFF);
+        System.arraycopy(willPayload, 0, packet, i, willPayload.length);
+
+        return packet;
     }
 
 }

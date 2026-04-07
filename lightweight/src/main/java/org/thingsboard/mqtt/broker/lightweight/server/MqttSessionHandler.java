@@ -32,6 +32,7 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.thingsboard.mqtt.broker.lightweight.actors.TbActorNotRegisteredException;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorSystem;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbTypeActorId;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.ClientActorCreator;
@@ -49,6 +50,8 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
+import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsgService;
+import org.thingsboard.mqtt.broker.lightweight.service.mqtt.will.LastWillService;
 import org.thingsboard.mqtt.broker.lightweight.service.subscription.SubscriptionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionCtx;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
@@ -83,6 +86,8 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
     private final MqttMessageGenerator messageGenerator;
     private final MqttConfiguration mqttConfig;
     private final SubscriptionRegistry subscriptionRegistry;
+    private final RetainedMsgService retainedMsgService;
+    private final LastWillService lastWillService;
 
     /** Session context — null until CONNECT is processed. */
     private ClientSessionCtx sessionCtx;
@@ -231,7 +236,8 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
 
         TbTypeActorId actorId = new TbTypeActorId("client", clientId);
         actorSystem.createRootActor(CLIENT_DISPATCHER, new ClientActorCreator(
-                clientId, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry));
+                clientId, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
+                retainedMsgService, lastWillService));
 
         actorSystem.tell(actorId, new SessionInitMsg(sessionCtx));
         actorSystem.tell(actorId, new MqttConnectMsg(connectMsg, sessionCtx));
@@ -269,7 +275,13 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         if (sessionCtx != null && sessionCtx.getState() != SessionState.DISCONNECTED) {
             TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
-            actorSystem.tell(actorId, new SessionCloseMsg(DisconnectReasonType.ON_CHANNEL_CLOSED));
+            try {
+                actorSystem.tell(actorId, new SessionCloseMsg(DisconnectReasonType.ON_CHANNEL_CLOSED));
+            } catch (TbActorNotRegisteredException e) {
+                // Actor was already stopped (e.g., displaced by client takeover).
+                // Channel close notification is expected and can be safely ignored.
+                log.debug("[{}] Actor no longer registered on channel close — already cleaned up", sessionCtx.getClientId());
+            }
         }
         super.channelInactive(ctx);
     }
