@@ -14,9 +14,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Integration tests for MQTT SUBSCRIBE / UNSUBSCRIBE / SUBACK — PROTO-03.
  *
- * <p>Phase 3 (Plan 02): wildcard subscriptions are now fully delivered via the trie-backed
- * dispatch pipeline. Previously Phase 2 tests asserted no delivery for wildcards (D-06).
- * Those tests are updated here to assert correct delivery (D-07 activated in Phase 3).
+ * <p>Phase 3: wildcard subscriptions are fully delivered via the trie-backed dispatch pipeline.
+ * Wildcard + and # filters match and deliver messages. $SYS/ topics are excluded from wildcard
+ * matching per MQTT spec section 4.7.2 — only explicit $SYS/ subscriptions receive those messages.
  */
 class MqttSubscribeIntegrationTest extends AbstractMqttIntegrationTest {
 
@@ -91,6 +91,69 @@ class MqttSubscribeIntegrationTest extends AbstractMqttIntegrationTest {
         MqttClient publisher = createClient("pub-wild-hash-1");
         publisher.connect(defaultConnectOptions());
         publisher.publish("sensor/temperature", "25".getBytes(), 0, false);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(() -> count.get() == 1);
+        assertThat(count.get()).isEqualTo(1);
+    }
+
+    @Test
+    void testSubscribe_hashWildcard_doesNotMatchSysTopics() throws Exception {
+        // Per D-06/MQTT spec 4.7.2: wildcard # must NOT match topics starting with $
+        MqttClient subscriber = createClient("sub-sys-hash-1");
+        subscriber.connect(defaultConnectOptions());
+        AtomicInteger count = new AtomicInteger();
+        subscriber.subscribe("#", 0, (t, m) -> count.incrementAndGet());
+
+        MqttClient publisher = createClient("pub-sys-1");
+        publisher.connect(defaultConnectOptions());
+        // Publish to a $SYS topic — should NOT be delivered to # subscriber
+        publisher.publish("$SYS/broker/uptime", "12345".getBytes(), 0, false);
+        Thread.sleep(1000);
+        assertThat(count.get()).isEqualTo(0); // $SYS/ excluded from # wildcard per spec
+    }
+
+    @Test
+    void testSubscribe_plusWildcard_doesNotMatchSysTopics() throws Exception {
+        // Per D-06/MQTT spec 4.7.2: wildcard + must NOT match topics starting with $
+        MqttClient subscriber = createClient("sub-sys-plus-1");
+        subscriber.connect(defaultConnectOptions());
+        AtomicInteger count = new AtomicInteger();
+        subscriber.subscribe("+/broker/uptime", 0, (t, m) -> count.incrementAndGet());
+
+        MqttClient publisher = createClient("pub-sys-2");
+        publisher.connect(defaultConnectOptions());
+        publisher.publish("$SYS/broker/uptime", "12345".getBytes(), 0, false);
+        Thread.sleep(1000);
+        assertThat(count.get()).isEqualTo(0); // $SYS/ excluded from + wildcard
+    }
+
+    @Test
+    void testSubscribe_explicitSysTopic_delivers() throws Exception {
+        // Explicit $SYS/ subscription SHOULD match
+        MqttClient subscriber = createClient("sub-sys-explicit-1");
+        subscriber.connect(defaultConnectOptions());
+        AtomicInteger count = new AtomicInteger();
+        subscriber.subscribe("$SYS/broker/+", 0, (t, m) -> count.incrementAndGet());
+
+        MqttClient publisher = createClient("pub-sys-3");
+        publisher.connect(defaultConnectOptions());
+        publisher.publish("$SYS/broker/uptime", "12345".getBytes(), 0, false);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(() -> count.get() == 1);
+        assertThat(count.get()).isEqualTo(1);
+    }
+
+    @Test
+    void testSubscribe_wildcardMultiLevel_deliversDeepTopics() throws Exception {
+        // # should match any depth beyond the prefix
+        MqttClient subscriber = createClient("sub-deep-hash-1");
+        subscriber.connect(defaultConnectOptions());
+        AtomicInteger count = new AtomicInteger();
+        subscriber.subscribe("a/#", 0, (t, m) -> count.incrementAndGet());
+
+        MqttClient publisher = createClient("pub-deep-1");
+        publisher.connect(defaultConnectOptions());
+        publisher.publish("a/b/c/d", "deep".getBytes(), 0, false);
 
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(() -> count.get() == 1);
         assertThat(count.get()).isEqualTo(1);

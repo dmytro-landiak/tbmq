@@ -5,6 +5,9 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -115,6 +118,69 @@ class MqttRetainedMsgIntegrationTest extends AbstractMqttIntegrationTest {
 
         await().atMost(5, SECONDS).until(() -> received.get() != null);
         assertThat(received.get().getQos()).isEqualTo(0); // downgraded to subscription QoS
+    }
+
+    @Test
+    void testRetainedMsg_wildcardSubscribe_deliversAll() throws Exception {
+        // Phase 3: wildcard subscribe should deliver all matching retained messages
+        MqttClient publisher = createClient("pub-ret-wild-1");
+        publisher.connect(defaultConnectOptions());
+        // Publish retained messages on two different topics
+        publisher.publish("sensor/temp", "25".getBytes(), 0, true);
+        publisher.publish("sensor/humidity", "60".getBytes(), 0, true);
+        Thread.sleep(300); // allow retained messages to be stored
+
+        MqttClient subscriber = createClient("sub-ret-wild-1");
+        subscriber.connect(defaultConnectOptions());
+        AtomicInteger count = new AtomicInteger();
+        List<String> topics = Collections.synchronizedList(new ArrayList<>());
+        subscriber.subscribe("sensor/+", 0, (topic, msg) -> {
+            topics.add(topic);
+            count.incrementAndGet();
+        });
+
+        await().atMost(5, SECONDS).until(() -> count.get() >= 2);
+        assertThat(count.get()).isEqualTo(2);
+        assertThat(topics).containsExactlyInAnyOrder("sensor/temp", "sensor/humidity");
+    }
+
+    @Test
+    void testRetainedMsg_wildcardHash_deliversAll() throws Exception {
+        MqttClient publisher = createClient("pub-ret-hash-1");
+        publisher.connect(defaultConnectOptions());
+        publisher.publish("device/1/temp", "22".getBytes(), 0, true);
+        publisher.publish("device/2/temp", "23".getBytes(), 0, true);
+        Thread.sleep(300);
+
+        MqttClient subscriber = createClient("sub-ret-hash-1");
+        subscriber.connect(defaultConnectOptions());
+        AtomicInteger count = new AtomicInteger();
+        subscriber.subscribe("device/#", 0, (topic, msg) -> count.incrementAndGet());
+
+        await().atMost(5, SECONDS).until(() -> count.get() >= 2);
+        assertThat(count.get()).isEqualTo(2);
+    }
+
+    @Test
+    void testRetainedMsg_sysTopicNotDeliveredOnWildcard() throws Exception {
+        // Publishes a $SYS/ retained message and verifies it is NOT delivered to # subscriber.
+        // Uses an isolated topic namespace ("sys-test/+") to avoid retained messages from other tests.
+        MqttClient publisher = createClient("pub-ret-sys-1");
+        publisher.connect(defaultConnectOptions());
+        publisher.publish("$SYS/broker/uptime", "999".getBytes(), 0, true);
+        // Also publish a normal retained message in the same namespace for baseline
+        publisher.publish("sys-test/normal", "ok".getBytes(), 0, true);
+        Thread.sleep(300);
+
+        MqttClient subscriber = createClient("sub-ret-sys-1");
+        subscriber.connect(defaultConnectOptions());
+        List<String> receivedTopics = Collections.synchronizedList(new ArrayList<>());
+        subscriber.subscribe("sys-test/#", 0, (topic, msg) -> receivedTopics.add(topic));
+
+        await().atMost(5, SECONDS).until(() -> receivedTopics.size() >= 1);
+        // The normal message should be received, but $SYS/ message should NOT
+        assertThat(receivedTopics).doesNotContain("$SYS/broker/uptime");
+        assertThat(receivedTopics).contains("sys-test/normal");
     }
 
 }
