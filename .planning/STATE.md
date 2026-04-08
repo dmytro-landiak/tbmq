@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 4 context gathered
-last_updated: "2026-04-08T16:40:54.669Z"
+status: executing
+stopped_at: "Completed 04-01-PLAN.md: security service layer"
+last_updated: "2026-04-08T17:12:50.250Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 14
+  completed_plans: 12
   percent: 100
 ---
 
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 04 (security) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-08
 
 Progress: [████████████████████] 3/3 plans (100%)
@@ -64,6 +64,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 03-message-dispatch P01 | 3 | 2 tasks | 8 files |
 | Phase 03-message-dispatch P02 | 9 | 2 tasks | 14 files |
 | Phase 03-message-dispatch P03 | 7 | 2 tasks | 4 files |
+| Phase 04-security P01 | 7 | 1 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,8 @@ Recent decisions affecting current work:
 - [Phase 03-message-dispatch]: Per-client topic filter index in DefaultSubscriptionRegistry — avoids O(trie_size) full scan on disconnect; removeAllSubscriptions is O(client_subscriptions)
 - [Phase 03-message-dispatch]: testRetainedMsg_sysTopicNotDeliveredOnWildcard uses isolated namespace (sys-test/#) for test isolation in shared Spring context
 - [Phase 03-message-dispatch]: start()+stop() in unit test setUp() initializes queue/counter fields without running consumer threads for deterministic testing
+- [Phase 04-security]: DefaultCredentialsInstaller uses @EventListener(ApplicationReadyEvent) not @PostConstruct — RocksDB SmartLifecycle starts after bean initialization
+- [Phase 04-security]: Anonymous connections return AuthResult.success(emptyList()) — empty patterns list bypasses all ACL checks in isPubAuthorized/isSubAuthorized
 
 ### Roadmap Evolution
 
@@ -118,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T16:40:54.666Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-security/04-CONTEXT.md
+Last session: 2026-04-08T17:12:50.247Z
+Stopped at: Completed 04-01-PLAN.md: security service layer
+Resume file: None

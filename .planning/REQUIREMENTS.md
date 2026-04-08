@@ -31,11 +31,11 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 
 ### Authentication & Authorization
 
-- [ ] **AUTH-01**: Broker authenticates clients via username/password credentials stored in RocksDB
+- [x] **AUTH-01**: Broker authenticates clients via username/password credentials stored in RocksDB
 - [ ] **AUTH-02**: Broker authenticates clients via X.509 client certificates during mutual TLS handshake
-- [ ] **AUTH-03**: Broker enforces topic-level ACL rules (publish and subscribe permissions) stored in RocksDB
-- [ ] **AUTH-04**: Broker requires authentication by default — anonymous access is disabled unless explicitly enabled via configuration
-- [ ] **AUTH-05**: Credentials and ACL rules persist across broker restarts via RocksDB storage
+- [x] **AUTH-03**: Broker enforces topic-level ACL rules (publish and subscribe permissions) stored in RocksDB
+- [x] **AUTH-04**: Broker requires authentication by default — anonymous access is disabled unless explicitly enabled via configuration
+- [x] **AUTH-05**: Credentials and ACL rules persist across broker restarts via RocksDB storage
 
 ### Infrastructure
 
@@ -112,11 +112,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRAN-01 | Phase 2 | Complete |
 | INFR-01 | Phase 3 | Complete |
 | INFR-04 | Phase 3 | Complete |
-| AUTH-01 | Phase 4 | Pending |
+| AUTH-01 | Phase 4 | Complete |
 | AUTH-02 | Phase 4 | Pending |
-| AUTH-03 | Phase 4 | Pending |
-| AUTH-04 | Phase 4 | Pending |
-| AUTH-05 | Phase 4 | Pending |
+| AUTH-03 | Phase 4 | Complete |
+| AUTH-04 | Phase 4 | Complete |
+| AUTH-05 | Phase 4 | Complete |
 | TRAN-02 | Phase 4 | Pending |
 | TRAN-03 | Phase 5 | Pending |
 | TRAN-04 | Phase 5 | Pending |
