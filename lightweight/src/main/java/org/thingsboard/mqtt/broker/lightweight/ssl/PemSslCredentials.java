@@ -1,0 +1,212 @@
+/**
+ * Copyright © 2016-2026 The Thingsboard Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.thingsboard.mqtt.broker.lightweight.ssl;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.extern.slf4j.Slf4j;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMDecryptorProvider;
+import org.bouncycastle.openssl.PEMEncryptedKeyPair;
+import org.bouncycastle.openssl.PEMKeyPair;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
+import org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8DecryptorProviderBuilder;
+import org.bouncycastle.openssl.jcajce.JcePEMDecryptorProviderBuilder;
+import org.bouncycastle.operator.InputDecryptorProvider;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
+import org.bouncycastle.pkcs.PKCSException;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.Security;
+import java.security.cert.CertPath;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * PEM file-based SSL credentials using BouncyCastle for parsing.
+ *
+ * <p>Handles all common PEM key formats:
+ * <ul>
+ *   <li>Unencrypted RSA key pairs ({@code PEMKeyPair})</li>
+ *   <li>Encrypted PEM key pairs ({@code PEMEncryptedKeyPair})</li>
+ *   <li>PKCS#8 unencrypted private keys ({@code PrivateKeyInfo})</li>
+ *   <li>PKCS#8 encrypted private keys ({@code PKCS8EncryptedPrivateKeyInfo})</li>
+ *   <li>X.509 certificate chains</li>
+ * </ul>
+ *
+ * <p>Resource paths support:
+ * <ul>
+ *   <li>Filesystem paths: {@code /etc/tls/server.pem}</li>
+ *   <li>Classpath paths: {@code classpath:tls/server.pem}</li>
+ * </ul>
+ *
+ * <p>Copied and trimmed from TBMQ's {@code ssl.config.PemSslCredentials} — stripped
+ * TBMQ-specific {@code ResourceUtils} dependency in favor of inline classpath resolution.
+ */
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Slf4j
+public class PemSslCredentials extends AbstractSslCredentials {
+
+    private static final String DEFAULT_KEY_ALIAS = "server";
+    private static final String CLASSPATH_PREFIX = "classpath:";
+
+    private String certFile;
+    private String keyFile;
+    private String keyPassword;
+
+    @Override
+    protected KeyStore loadKeyStore(boolean trustsOnly, char[] keyPasswordArray) throws IOException, GeneralSecurityException {
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+            Security.addProvider(new BouncyCastleProvider());
+        }
+        List<X509Certificate> certificates = new ArrayList<>();
+        PrivateKey privateKey = null;
+        JcaX509CertificateConverter certConverter = new JcaX509CertificateConverter();
+        JcaPEMKeyConverter keyConverter = new JcaPEMKeyConverter();
+
+        try (InputStream inStream = openResource(this.certFile)) {
+            try (PEMParser pemParser = new PEMParser(new InputStreamReader(inStream))) {
+                Object object;
+                while ((object = pemParser.readObject()) != null) {
+                    if (object instanceof X509CertificateHolder) {
+                        X509Certificate x509Cert = certConverter.getCertificate((X509CertificateHolder) object);
+                        certificates.add(x509Cert);
+                    } else if (object instanceof PEMEncryptedKeyPair) {
+                        PEMDecryptorProvider decProv = new JcePEMDecryptorProviderBuilder().build(keyPasswordArray);
+                        privateKey = keyConverter.getKeyPair(((PEMEncryptedKeyPair) object).decryptKeyPair(decProv)).getPrivate();
+                    } else if (object instanceof PEMKeyPair) {
+                        privateKey = keyConverter.getKeyPair((PEMKeyPair) object).getPrivate();
+                    } else if (object instanceof PrivateKeyInfo) {
+                        privateKey = keyConverter.getPrivateKey((PrivateKeyInfo) object);
+                    } else if (object instanceof PKCS8EncryptedPrivateKeyInfo) {
+                        try {
+                            InputDecryptorProvider decProv = new JceOpenSSLPKCS8DecryptorProviderBuilder().build(keyPasswordArray);
+                            privateKey = keyConverter.getPrivateKey(((PKCS8EncryptedPrivateKeyInfo) object).decryptPrivateKeyInfo(decProv));
+                        } catch (OperatorCreationException | PKCSException e) {
+                            log.error("Failure during private key decryption from certFile", e);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (privateKey == null && this.keyFile != null && !this.keyFile.isEmpty()) {
+            try (InputStream inStream = openResource(this.keyFile)) {
+                try (PEMParser pemParser = new PEMParser(new InputStreamReader(inStream))) {
+                    Object object;
+                    while ((object = pemParser.readObject()) != null) {
+                        if (object instanceof PEMEncryptedKeyPair) {
+                            PEMDecryptorProvider decProv = new JcePEMDecryptorProviderBuilder().build(keyPasswordArray);
+                            privateKey = keyConverter.getKeyPair(((PEMEncryptedKeyPair) object).decryptKeyPair(decProv)).getPrivate();
+                            break;
+                        } else if (object instanceof PEMKeyPair) {
+                            privateKey = keyConverter.getKeyPair((PEMKeyPair) object).getPrivate();
+                            break;
+                        } else if (object instanceof PrivateKeyInfo) {
+                            privateKey = keyConverter.getPrivateKey((PrivateKeyInfo) object);
+                        } else if (object instanceof PKCS8EncryptedPrivateKeyInfo) {
+                            try {
+                                InputDecryptorProvider decProv = new JceOpenSSLPKCS8DecryptorProviderBuilder().build(keyPasswordArray);
+                                privateKey = keyConverter.getPrivateKey(((PKCS8EncryptedPrivateKeyInfo) object).decryptPrivateKeyInfo(decProv));
+                            } catch (OperatorCreationException | PKCSException e) {
+                                log.error("Failure during private key decryption from keyFile", e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (certificates.isEmpty()) {
+            throw new IllegalArgumentException("No certificates found in certFile: " + this.certFile);
+        }
+        if (privateKey == null && !trustsOnly) {
+            throw new IllegalArgumentException("Unable to load private key neither from certFile: " + this.certFile + " nor from keyFile: " + this.keyFile);
+        }
+
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null);
+        List<Certificate> unique = certificates.stream().distinct().collect(Collectors.toList());
+        for (int i = 0; i < unique.size(); i++) {
+            keyStore.setCertificateEntry("root-" + i, unique.get(i));
+        }
+        if (privateKey != null) {
+            CertificateFactory factory = CertificateFactory.getInstance("X.509");
+            CertPath certPath = factory.generateCertPath(certificates);
+            List<? extends Certificate> path = certPath.getCertificates();
+            Certificate[] x509Certificates = path.toArray(new Certificate[0]);
+            keyStore.setKeyEntry(DEFAULT_KEY_ALIAS, privateKey, keyPasswordArray, x509Certificates);
+        }
+        return keyStore;
+    }
+
+    @Override
+    public String getKeyAlias() {
+        return DEFAULT_KEY_ALIAS;
+    }
+
+    @Override
+    public String getKeyPassword() {
+        return keyPassword != null ? keyPassword : "";
+    }
+
+    @Override
+    protected void updateKeyAlias(String keyAlias) {
+        // key alias is fixed to DEFAULT_KEY_ALIAS
+    }
+
+    /**
+     * Opens an InputStream for the given resource path.
+     * Supports filesystem paths and {@code classpath:} prefixed paths.
+     */
+    private InputStream openResource(String path) throws IOException {
+        if (path == null || path.isEmpty()) {
+            throw new IllegalArgumentException("Resource path must not be null or empty");
+        }
+        if (path.startsWith(CLASSPATH_PREFIX)) {
+            String classpathPath = path.substring(CLASSPATH_PREFIX.length());
+            InputStream stream = getClass().getClassLoader().getResourceAsStream(classpathPath);
+            if (stream == null) {
+                throw new IOException("Classpath resource not found: " + path);
+            }
+            log.debug("Loading PEM resource from classpath: {}", path);
+            return stream;
+        }
+        File file = new File(path);
+        if (!file.exists()) {
+            throw new IOException("PEM file not found: " + path);
+        }
+        log.debug("Loading PEM resource from filesystem: {}", path);
+        return new FileInputStream(file);
+    }
+}
