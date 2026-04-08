@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 04-01-PLAN.md: security service layer"
-last_updated: "2026-04-08T17:12:50.250Z"
+stopped_at: "Completed 04-02-PLAN.md: auth and ACL pipeline wiring"
+last_updated: "2026-04-08T17:30:14.804Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 100
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 04 (security) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-08
 
@@ -65,6 +65,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 03-message-dispatch P02 | 9 | 2 tasks | 14 files |
 | Phase 03-message-dispatch P03 | 7 | 2 tasks | 4 files |
 | Phase 04-security P01 | 7 | 1 tasks | 19 files |
+| Phase 04-security P02 | 14 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,9 @@ Recent decisions affecting current work:
 - [Phase 03-message-dispatch]: start()+stop() in unit test setUp() initializes queue/counter fields without running consumer threads for deterministic testing
 - [Phase 04-security]: DefaultCredentialsInstaller uses @EventListener(ApplicationReadyEvent) not @PostConstruct — RocksDB SmartLifecycle starts after bean initialization
 - [Phase 04-security]: Anonymous connections return AuthResult.success(emptyList()) — empty patterns list bypasses all ACL checks in isPubAuthorized/isSubAuthorized
+- [Phase 04-security]: Auth check inserted BEFORE session registration in processConnect() (per D-04) — avoids registering sessions that will be immediately rejected
+- [Phase 04-security]: PUBLISH ACL denial sends QoS acks before dropping message — avoids protocol violation while enforcing ACL silently
+- [Phase 04-security]: defaultConnectOptions() in AbstractMqttIntegrationTest includes tbmq/tbmq credentials — required since auth is enforced by default
 
 ### Roadmap Evolution
 
@@ -121,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T17:12:50.247Z
-Stopped at: Completed 04-01-PLAN.md: security service layer
+Last session: 2026-04-08T17:30:14.801Z
+Stopped at: Completed 04-02-PLAN.md: auth and ACL pipeline wiring
 Resume file: None

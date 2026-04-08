@@ -74,10 +74,10 @@ Plans:
   3. A client is denied PUBLISH to a topic it has no ACL permission for, and denied SUBSCRIBE to a topic it has no read permission for; denials use correct MQTT return codes
   4. Anonymous connections are rejected by default; the broker accepts anonymous connections only when explicitly configured via environment variable
   5. After a broker restart, credentials and ACL rules loaded from the volume-mounted RocksDB directory are enforced without re-configuration
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [x] 04-01-PLAN.md — Security service layer: credential/ACL models, RocksDB-backed services, auth service, default installer, Spring Security config
-- [ ] 04-02-PLAN.md — Auth pipeline wiring: auth in ClientActor processConnect, ACL in processPublish/processSubscribe, integration tests
+- [x] 04-02-PLAN.md — Auth pipeline wiring: auth in ClientActor processConnect, ACL in processPublish/processSubscribe, integration tests
 - [ ] 04-03-PLAN.md — TLS listener + mTLS: PEM loading, Netty TLS bootstrap, X.509 auth, test PKI, integration tests
 
 ### Phase 5: WebSocket Transport
@@ -121,7 +121,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 3/3 | Complete   | 2026-04-03 |
 | 2. Core Protocol (MQTT 3.1.1) | 5/5 | Complete   | 2026-04-07 |
 | 3. Message Dispatch | 3/3 | Complete   | 2026-04-08 |
-| 4. Security | 1/3 | In Progress|  |
+| 4. Security | 2/3 | In Progress|  |
 | 5. WebSocket Transport | 0/TBD | Not started | - |
 | 6. MQTT 5.0 | 0/TBD | Not started | - |
 | 7. Hardening and Docker Release | 0/TBD | Not started | - |
