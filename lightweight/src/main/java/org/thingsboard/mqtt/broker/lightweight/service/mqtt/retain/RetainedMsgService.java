@@ -15,6 +15,7 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -24,7 +25,8 @@ import java.util.Optional;
  * <ul>
  *   <li>Set: store a new retained message for a topic, replacing any previous one</li>
  *   <li>Clear: delete the retained message for a topic (triggered by empty payload publish)</li>
- *   <li>Get: retrieve the retained message for an exact topic match</li>
+ *   <li>Get (exact): retrieve the retained message for an exact topic match</li>
+ *   <li>Get (wildcard): retrieve all retained messages matching a topic filter (Phase 3)</li>
  * </ul>
  *
  * <p>In R1, all retained messages are in-memory only (D-09: no persistence across restarts).
@@ -50,9 +52,21 @@ public interface RetainedMsgService {
     /**
      * Returns the retained message for the given topic, if any.
      *
-     * @param topic the exact topic name (no wildcards in R1)
+     * @param topic the exact topic name (no wildcards)
      * @return an Optional containing the retained message, or empty if none exists
      */
     Optional<RetainedMsg> getRetainedMessage(String topic);
+
+    /**
+     * Returns all retained messages whose topic matches the given topic filter.
+     * Supports wildcard filters (+ and #) via the retained message trie.
+     *
+     * <p>Used when delivering retained messages on subscribe — per D-08, wildcard filters
+     * must match all retained messages stored under matching topic hierarchies.
+     *
+     * @param topicFilter the MQTT topic filter (may contain wildcards)
+     * @return list of matching retained messages (never null, may be empty)
+     */
+    List<RetainedMsg> getRetainedMessages(String topicFilter);
 
 }

@@ -15,41 +15,50 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory implementation of {@link RetainedMsgService} backed by a {@link ConcurrentHashMap}.
+ * In-memory implementation of {@link RetainedMsgService} backed by {@link ConcurrentMapRetainMsgTrie}.
  *
  * <p>Per D-09: retained messages are stored in memory for the broker lifetime only.
  * No persistence across restarts in R1 — this is intentional for the lightweight variant.
  *
- * <p>Thread safety: ConcurrentHashMap provides thread-safe reads and writes without locking.
+ * <p>Wildcard lookup (Phase 3): {@link #getRetainedMessages(String)} delegates to the trie
+ * which supports + and # wildcards per MQTT 3.1.1 spec.
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class DefaultRetainedMsgService implements RetainedMsgService {
 
-    private final ConcurrentHashMap<String, RetainedMsg> retainedMessages = new ConcurrentHashMap<>();
+    private final ConcurrentMapRetainMsgTrie<RetainedMsg> retainMsgTrie;
 
     @Override
     public void setRetainedMessage(String topic, RetainedMsg msg) {
-        retainedMessages.put(topic, msg);
+        retainMsgTrie.put(topic, msg);
         log.debug("Stored retained message for topic '{}' (qos={}, {} bytes)", topic, msg.getQos(), msg.getPayload().length);
     }
 
     @Override
     public void clearRetainedMessage(String topic) {
-        retainedMessages.remove(topic);
+        retainMsgTrie.delete(topic);
         log.debug("Cleared retained message for topic '{}'", topic);
     }
 
     @Override
     public Optional<RetainedMsg> getRetainedMessage(String topic) {
-        return Optional.ofNullable(retainedMessages.get(topic));
+        List<RetainedMsg> results = retainMsgTrie.get(topic);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+    @Override
+    public List<RetainedMsg> getRetainedMessages(String topicFilter) {
+        return retainMsgTrie.get(topicFilter);
     }
 
 }

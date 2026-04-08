@@ -50,6 +50,7 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
+import org.thingsboard.mqtt.broker.lightweight.service.dispatch.MsgDispatcherService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsgService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.will.LastWillService;
 import org.thingsboard.mqtt.broker.lightweight.service.subscription.SubscriptionRegistry;
@@ -88,6 +89,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
     private final SubscriptionRegistry subscriptionRegistry;
     private final RetainedMsgService retainedMsgService;
     private final LastWillService lastWillService;
+    private final MsgDispatcherService msgDispatcherService;
 
     /** Session context — null until CONNECT is processed. */
     private ClientSessionCtx sessionCtx;
@@ -237,7 +239,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         TbTypeActorId actorId = new TbTypeActorId("client", clientId);
         actorSystem.createRootActor(CLIENT_DISPATCHER, new ClientActorCreator(
                 clientId, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
-                retainedMsgService, lastWillService));
+                retainedMsgService, lastWillService, msgDispatcherService));
 
         actorSystem.tell(actorId, new SessionInitMsg(sessionCtx));
         actorSystem.tell(actorId, new MqttConnectMsg(connectMsg, sessionCtx));

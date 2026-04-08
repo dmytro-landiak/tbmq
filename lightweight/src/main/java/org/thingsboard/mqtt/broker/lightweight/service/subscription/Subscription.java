@@ -16,17 +16,22 @@
 package org.thingsboard.mqtt.broker.lightweight.service.subscription;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionCtx;
 
 /**
  * Represents a single MQTT subscription for a client.
  *
  * <p>Stored in the {@link SubscriptionRegistry} keyed by topic filter.
- * The {@code sessionCtx} reference is used for inline message delivery (D-04).
+ * The {@code sessionCtx} reference is used for message delivery via the actor system (D-04).
+ *
+ * <p>Equality is based on {@code clientId} only — so that re-subscribe (same client, different QoS)
+ * correctly replaces the existing entry in the trie's {@code addOrReplace} semantics.
  */
-@Data
+@Getter
 @AllArgsConstructor
+@EqualsAndHashCode(of = "clientId")
 public class Subscription {
 
     /** The MQTT client identifier that owns this subscription. */
@@ -35,7 +40,7 @@ public class Subscription {
     /** Granted QoS level (0, 1, or 2) — may be downgraded from requested QoS. */
     private final int qos;
 
-    /** Session context reference used for direct inline delivery to the subscriber's channel. */
+    /** Session context reference used for actor-based delivery to the subscriber's channel. */
     private final ClientSessionCtx sessionCtx;
 
 }

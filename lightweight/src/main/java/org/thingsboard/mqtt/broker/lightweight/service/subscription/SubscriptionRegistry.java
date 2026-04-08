@@ -15,13 +15,13 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.service.subscription;
 
-import java.util.Set;
+import java.util.List;
 
 /**
  * Registry for MQTT topic subscriptions.
  *
- * <p>Provides exact-match topic lookup only in Phase 2 (D-06).
- * Wildcard subscription matching is deferred to Phase 3 (subscription trie).
+ * <p>Backed by {@link ConcurrentMapSubscriptionTrie} for wildcard subscription matching
+ * (Phase 3). Supports + and # wildcards per MQTT 3.1.1 spec.
  */
 public interface SubscriptionRegistry {
 
@@ -29,7 +29,7 @@ public interface SubscriptionRegistry {
      * Adds or updates a subscription for the given topic filter.
      * If the client already has a subscription for this topic, it is replaced (QoS update).
      *
-     * @param topicFilter the MQTT topic filter (may contain wildcards in Phase 3+)
+     * @param topicFilter the MQTT topic filter (may contain wildcards)
      * @param subscription the subscription to register
      */
     void subscribe(String topicFilter, Subscription subscription);
@@ -43,15 +43,14 @@ public interface SubscriptionRegistry {
     void unsubscribe(String topicFilter, String clientId);
 
     /**
-     * Returns all subscriptions for an exact topic name match.
-     *
-     * <p>Per D-06, wildcard expansion is NOT performed in Phase 2.
-     * Only subscriptions whose topic filter exactly equals {@code topicName} are returned.
+     * Returns all subscriptions whose topic filter matches the given topic name,
+     * including wildcard matches (+ and #). Per D-07, results include the matched topic filter
+     * for QoS downgrade.
      *
      * @param topicName the exact MQTT topic name from a PUBLISH packet
-     * @return set of matching subscriptions (never null, may be empty)
+     * @return list of matching subscriptions with their topic filter (never null, may be empty)
      */
-    Set<Subscription> getSubscriptions(String topicName);
+    List<ValueWithTopicFilter<Subscription>> getSubscriptions(String topicName);
 
     /**
      * Removes all subscriptions for the given client across all topic filters.

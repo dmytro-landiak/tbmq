@@ -27,6 +27,7 @@ import org.thingsboard.mqtt.broker.lightweight.actors.ProcessFailureStrategy;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorCtx;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorException;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorMsg;
+import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.DeliverMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttConnectMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttDisconnectMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttPubAckMsg;
@@ -40,6 +41,7 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.PingMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
+import org.thingsboard.mqtt.broker.lightweight.service.dispatch.MsgDispatcherService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.PublishMsg;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsg;
@@ -55,7 +57,6 @@ import org.thingsboard.mqtt.broker.lightweight.session.SessionState;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Per-client actor that processes all MQTT messages for a single client connection.
@@ -69,8 +70,9 @@ import java.util.Set;
  *   <li>CONNECT_MSG — validates, registers session, stores LWT, handles takeover, sends CONNACK</li>
  *   <li>DISCONNECT_MSG — conditionally delivers LWT, cleans up, closes channel</li>
  *   <li>PING_MSG — writes PINGRESP back to client</li>
- *   <li>SUBSCRIBE_MSG — registers subscriptions, delivers retained messages</li>
- *   <li>PUBLISH_MSG — stores retained messages if retain=1, delivers to subscribers</li>
+ *   <li>SUBSCRIBE_MSG — registers subscriptions, delivers retained messages (wildcard via trie)</li>
+ *   <li>PUBLISH_MSG — stores retained messages if retain=1, dispatches to queue (D-01)</li>
+ *   <li>DELIVER_MSG — delivers a message from the dispatch consumer to this client</li>
  * </ul>
  *
  * <p>CRITICAL: Never block the actor thread. All channel writes use fire-and-forget
@@ -86,6 +88,7 @@ public class ClientActor extends AbstractTbActor {
     private final SubscriptionRegistry subscriptionRegistry;
     private final RetainedMsgService retainedMsgService;
     private final LastWillService lastWillService;
+    private final MsgDispatcherService msgDispatcherService;
 
     /** Session context set on SESSION_INIT_MSG. */
     private ClientSessionCtx sessionCtx;
@@ -114,6 +117,7 @@ public class ClientActor extends AbstractTbActor {
             case PUBREC_MSG -> processPubRec((MqttPubRecMsg) msg);
             case PUBREL_MSG -> processPubRel((MqttPubRelMsg) msg);
             case PUBCOMP_MSG -> processPubComp((MqttPubCompMsg) msg);
+            case DELIVER_MSG -> processDeliver((DeliverMsg) msg);
             default -> log.warn("[{}] Unhandled message type: {}", clientId, msgType);
         }
     }
@@ -231,8 +235,15 @@ public class ClientActor extends AbstractTbActor {
                                 RetainedMsg.builder().topicName(will.getTopicName()).qos(will.getQos()).payload(will.getPayload()).build());
                     }
                 }
-                // Deliver LWT as a regular publish to subscribers
-                deliverToSubscribers(will.getTopicName(), will.getQos(), will.getPayload(), false);
+                // Dispatch LWT as a regular publish through the queue (D-01)
+                msgDispatcherService.dispatch(PublishMsg.builder()
+                        .topicName(will.getTopicName())
+                        .qos(will.getQos())
+                        .payload(will.getPayload())
+                        .retain(false)
+                        .dup(false)
+                        .packetId(0)
+                        .build());
             });
         } else {
             // Clean disconnect or takeover — suppress LWT
@@ -276,28 +287,29 @@ public class ClientActor extends AbstractTbActor {
             subscriptionRegistry.subscribe(topicFilter, subscription);
             log.debug("[{}] Subscribed to '{}' with QoS {}", clientId, topicFilter, grantedQos);
 
-            // Deliver retained message for this exact topic (D-09: exact match only in Phase 2)
+            // Deliver retained messages matching this filter (including wildcards via trie)
             final int finalGrantedQos = grantedQos;
-            retainedMsgService.getRetainedMessage(topicFilter).ifPresent(retained -> {
+            List<RetainedMsg> retainedMsgs = retainedMsgService.getRetainedMessages(topicFilter);
+            for (RetainedMsg retained : retainedMsgs) {
                 int deliveryQos = Math.min(retained.getQos(), finalGrantedQos);
-                log.debug("[{}] Delivering retained message for topic '{}' (qos={})", clientId, topicFilter, deliveryQos);
+                log.debug("[{}] Delivering retained message for topic '{}' (qos={})", clientId, retained.getTopicName(), deliveryQos);
                 if (deliveryQos == 0) {
                     sessionCtx.getChannel().writeAndFlush(
                             messageGenerator.createPublish(retained.getTopicName(), 0, retained.getPayload(), true, false, 0));
                 } else if (deliveryQos == 1) {
                     int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
                     sessionCtx.getOutboundQos1().put(pktId, PublishMsg.builder()
-                            .topicName(retained.getTopicName()).qos(1).payload(retained.getPayload()).retain(true).packetId(pktId).build());
+                            .topicName(retained.getTopicName()).qos(1).payload(retained.getPayload()).retain(true).dup(false).packetId(pktId).build());
                     sessionCtx.getChannel().writeAndFlush(
                             messageGenerator.createPublish(retained.getTopicName(), 1, retained.getPayload(), true, false, pktId));
                 } else {
                     int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
                     sessionCtx.getOutboundQos2().put(pktId, PublishMsg.builder()
-                            .topicName(retained.getTopicName()).qos(2).payload(retained.getPayload()).retain(true).packetId(pktId).build());
+                            .topicName(retained.getTopicName()).qos(2).payload(retained.getPayload()).retain(true).dup(false).packetId(pktId).build());
                     sessionCtx.getChannel().writeAndFlush(
                             messageGenerator.createPublish(retained.getTopicName(), 2, retained.getPayload(), true, false, pktId));
                 }
-            });
+            }
         }
 
         sessionCtx.getChannel().writeAndFlush(
@@ -361,8 +373,9 @@ public class ClientActor extends AbstractTbActor {
             }
         }
 
-        // Deliver to subscribers (QoS 0 and QoS 1 deliver immediately)
-        deliverToSubscribers(topicName, publishQos, payload, false);
+        // Dispatch to subscribers via queue (D-01) — QoS ack sent above; dispatch is non-blocking
+        msgDispatcherService.dispatch(PublishMsg.builder()
+                .topicName(topicName).qos(publishQos).payload(payload).retain(false).dup(false).packetId(0).build());
     }
 
     private void processPubAck(MqttPubAckMsg msg) {
@@ -394,8 +407,15 @@ public class ClientActor extends AbstractTbActor {
                             RetainedMsg.builder().topicName(publishMsg.getTopicName()).qos(2).payload(publishMsg.getPayload()).build());
                 }
             }
-            // Deliver to subscribers now (exactly once)
-            deliverToSubscribers(publishMsg.getTopicName(), 2, publishMsg.getPayload(), false);
+            // Dispatch to subscribers via queue (D-01) — exactly once delivery
+            msgDispatcherService.dispatch(PublishMsg.builder()
+                    .topicName(publishMsg.getTopicName())
+                    .qos(2)
+                    .payload(publishMsg.getPayload())
+                    .retain(false)
+                    .dup(false)
+                    .packetId(0)
+                    .build());
         } else {
             log.warn("[{}] PUBREL received for unknown packetId={}", clientId, packetId);
         }
@@ -410,45 +430,36 @@ public class ClientActor extends AbstractTbActor {
     }
 
     /**
-     * Delivers a message to all exact-match subscribers for the given topic.
+     * Delivers a message dispatched by the consumer thread to this client's channel.
      *
-     * <p>Per D-04, delivery is inline (direct channel write) without a dispatch queue.
-     * QoS is downgraded to min(publishQos, subscriptionQos) per MQTT spec.
-     *
-     * @param retain whether to set the retain flag on the delivered message
-     *               (true for retained messages delivered on subscribe, false for live publishes)
+     * <p>Handles QoS 0/1/2 packet ID allocation and outbound tracking.
+     * Returns immediately if session is not CONNECTED (race during disconnect).
      */
-    private void deliverToSubscribers(String topicName, int publishQos, byte[] payload, boolean retain) {
-        Set<Subscription> subs = subscriptionRegistry.getSubscriptions(topicName);
-        for (Subscription sub : subs) {
-            ClientSessionCtx subscriberCtx = sub.getSessionCtx();
-            if (subscriberCtx.getState() != SessionState.CONNECTED) {
-                continue;
-            }
-            int deliveryQos = Math.min(publishQos, sub.getQos()); // QoS downgrade per spec
+    private void processDeliver(DeliverMsg msg) {
+        if (sessionCtx == null || sessionCtx.getState() != SessionState.CONNECTED) {
+            return;
+        }
+        PublishMsg publishMsg = msg.getPublishMsg();
+        int deliveryQos = msg.getDeliveryQos();
+        String topicName = publishMsg.getTopicName();
+        byte[] payload = publishMsg.getPayload();
+        boolean retain = publishMsg.isRetain();
 
-            if (deliveryQos == 0) {
-                // QoS 0: fire and forget
-                subscriberCtx.getChannel().writeAndFlush(
-                        messageGenerator.createPublish(topicName, 0, payload, retain, false, 0));
-            } else if (deliveryQos == 1) {
-                // QoS 1: assign packet ID, track in outbound map
-                int outPktId = subscriberCtx.getPacketIdAllocator().nextPacketId();
-                PublishMsg outMsg = PublishMsg.builder()
-                        .topicName(topicName).qos(1).payload(payload).retain(retain).dup(false).packetId(outPktId)
-                        .build();
-                subscriberCtx.getOutboundQos1().put(outPktId, outMsg);
-                subscriberCtx.getChannel().writeAndFlush(
-                        messageGenerator.createPublish(topicName, 1, payload, retain, false, outPktId));
-            } else { // deliveryQos == 2
-                int outPktId = subscriberCtx.getPacketIdAllocator().nextPacketId();
-                PublishMsg outMsg = PublishMsg.builder()
-                        .topicName(topicName).qos(2).payload(payload).retain(retain).dup(false).packetId(outPktId)
-                        .build();
-                subscriberCtx.getOutboundQos2().put(outPktId, outMsg);
-                subscriberCtx.getChannel().writeAndFlush(
-                        messageGenerator.createPublish(topicName, 2, payload, retain, false, outPktId));
-            }
+        if (deliveryQos == 0) {
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createPublish(topicName, 0, payload, retain, false, 0));
+        } else if (deliveryQos == 1) {
+            int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
+            sessionCtx.getOutboundQos1().put(pktId, PublishMsg.builder()
+                    .topicName(topicName).qos(1).payload(payload).retain(retain).dup(false).packetId(pktId).build());
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createPublish(topicName, 1, payload, retain, false, pktId));
+        } else {
+            int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
+            sessionCtx.getOutboundQos2().put(pktId, PublishMsg.builder()
+                    .topicName(topicName).qos(2).payload(payload).retain(retain).dup(false).packetId(pktId).build());
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createPublish(topicName, 2, payload, retain, false, pktId));
         }
     }
 

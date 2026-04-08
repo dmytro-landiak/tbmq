@@ -15,62 +15,67 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.service.subscription;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory subscription registry backed by a {@link ConcurrentHashMap}.
+ * In-memory subscription registry backed by {@link ConcurrentMapSubscriptionTrie}.
  *
- * <p>Topic filter -> Set&lt;Subscription&gt; mapping. Exact-match only per D-06.
- * Wildcard subscription matching is deferred to Phase 3's subscription trie.
+ * <p>Provides wildcard subscription matching (+ and #) via the trie data structure.
+ * The per-client topic filter index ({@code clientSubscriptions}) enables efficient
+ * {@link #removeAllSubscriptions(String)} without a full trie scan.
  *
- * <p>Thread safety: ConcurrentHashMap with ConcurrentHashMap.newKeySet() for subscription sets
- * ensures safe concurrent access without explicit locking.
+ * <p>Thread safety: the trie is inherently concurrent; the per-client map uses
+ * {@link ConcurrentHashMap} with {@link ConcurrentHashMap#newKeySet()} for thread-safe sets.
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class DefaultSubscriptionRegistry implements SubscriptionRegistry {
 
-    private final ConcurrentHashMap<String, Set<Subscription>> subscriptions = new ConcurrentHashMap<>();
+    private final ConcurrentMapSubscriptionTrie<Subscription> subscriptionTrie;
+
+    /** Per-client index: clientId -> set of subscribed topic filters. */
+    private final ConcurrentHashMap<String, Set<String>> clientSubscriptions = new ConcurrentHashMap<>();
 
     @Override
     public void subscribe(String topicFilter, Subscription subscription) {
-        subscriptions.compute(topicFilter, (topic, existing) -> {
-            Set<Subscription> set = (existing != null) ? existing : ConcurrentHashMap.newKeySet();
-            // Remove any existing subscription for the same clientId (re-subscribe updates QoS)
-            set.removeIf(s -> s.getClientId().equals(subscription.getClientId()));
-            set.add(subscription);
-            return set;
-        });
+        subscriptionTrie.put(topicFilter, subscription);
+        clientSubscriptions.computeIfAbsent(subscription.getClientId(), k -> ConcurrentHashMap.newKeySet())
+                .add(topicFilter);
         log.debug("[{}] Registered subscription for topic '{}' with QoS {}",
                 subscription.getClientId(), topicFilter, subscription.getQos());
     }
 
     @Override
     public void unsubscribe(String topicFilter, String clientId) {
-        subscriptions.computeIfPresent(topicFilter, (topic, set) -> {
-            set.removeIf(s -> s.getClientId().equals(clientId));
-            return set.isEmpty() ? null : set;
-        });
+        subscriptionTrie.delete(topicFilter, sub -> sub.getClientId().equals(clientId));
+        Set<String> filters = clientSubscriptions.get(clientId);
+        if (filters != null) {
+            filters.remove(topicFilter);
+        }
         log.debug("[{}] Removed subscription for topic '{}'", clientId, topicFilter);
     }
 
     @Override
-    public Set<Subscription> getSubscriptions(String topicName) {
-        return subscriptions.getOrDefault(topicName, Collections.emptySet());
+    public List<ValueWithTopicFilter<Subscription>> getSubscriptions(String topicName) {
+        return subscriptionTrie.get(topicName);
     }
 
     @Override
     public void removeAllSubscriptions(String clientId) {
-        subscriptions.forEach((topic, set) -> {
-            set.removeIf(s -> s.getClientId().equals(clientId));
-        });
-        // Clean up empty sets
-        subscriptions.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        Set<String> filters = clientSubscriptions.remove(clientId);
+        if (filters != null) {
+            for (String filter : filters) {
+                subscriptionTrie.delete(filter, sub -> sub.getClientId().equals(clientId));
+            }
+        }
         log.debug("[{}] Removed all subscriptions on disconnect", clientId);
     }
 

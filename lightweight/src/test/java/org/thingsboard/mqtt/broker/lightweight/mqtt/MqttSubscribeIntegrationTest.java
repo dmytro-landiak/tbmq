@@ -3,7 +3,6 @@ package org.thingsboard.mqtt.broker.lightweight.mqtt;
 import org.awaitility.Awaitility;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
@@ -15,9 +14,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Integration tests for MQTT SUBSCRIBE / UNSUBSCRIBE / SUBACK — PROTO-03.
  *
- * <p>D-07 design decision: wildcard subscriptions are accepted (valid SUBACK) but
- * delivery is deferred beyond Phase 2 scope — wildcard tests assert SUBACK only,
- * and confirm NO delivery in Phase 2.
+ * <p>Phase 3 (Plan 02): wildcard subscriptions are now fully delivered via the trie-backed
+ * dispatch pipeline. Previously Phase 2 tests asserted no delivery for wildcards (D-06).
+ * Those tests are updated here to assert correct delivery (D-07 activated in Phase 3).
  */
 class MqttSubscribeIntegrationTest extends AbstractMqttIntegrationTest {
 
@@ -66,35 +65,35 @@ class MqttSubscribeIntegrationTest extends AbstractMqttIntegrationTest {
     }
 
     @Test
-    void testSubscribe_wildcardPlus_storedButNoDelivery() throws Exception {
-        // Per D-07: wildcard subscriptions accepted (SUBACK returned), but no delivery in Phase 2
+    void testSubscribe_wildcardPlus_deliversMessages() throws Exception {
+        // Phase 3 (D-07 activated): wildcard + subscription delivers matching messages via trie
         MqttClient subscriber = createClient("sub-wild-plus-1");
         subscriber.connect(defaultConnectOptions());
         AtomicInteger count = new AtomicInteger();
         subscriber.subscribe("test/+", 0, (t, m) -> count.incrementAndGet());
-        // Subscribe succeeds — no exception means valid SUBACK received
 
         MqttClient publisher = createClient("pub-wild-plus-1");
         publisher.connect(defaultConnectOptions());
         publisher.publish("test/foo", "hello".getBytes(), 0, false);
-        Thread.sleep(1000);
-        assertThat(count.get()).isEqualTo(0); // wildcard NOT delivered in Phase 2 (exact-match only D-06)
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(() -> count.get() == 1);
+        assertThat(count.get()).isEqualTo(1);
     }
 
     @Test
-    void testSubscribe_wildcardHash_storedButNoDelivery() throws Exception {
-        // Per D-07: wildcard subscriptions accepted (SUBACK returned), but no delivery in Phase 2
+    void testSubscribe_wildcardHash_deliversMessages() throws Exception {
+        // Phase 3 (D-07 activated): wildcard # subscription delivers matching messages via trie
         MqttClient subscriber = createClient("sub-wild-hash-1");
         subscriber.connect(defaultConnectOptions());
         AtomicInteger count = new AtomicInteger();
         subscriber.subscribe("sensor/#", 0, (t, m) -> count.incrementAndGet());
-        // Subscribe succeeds — no exception means valid SUBACK received
 
         MqttClient publisher = createClient("pub-wild-hash-1");
         publisher.connect(defaultConnectOptions());
         publisher.publish("sensor/temperature", "25".getBytes(), 0, false);
-        Thread.sleep(1000);
-        assertThat(count.get()).isEqualTo(0); // wildcard NOT delivered in Phase 2 (exact-match only D-06)
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(() -> count.get() == 1);
+        assertThat(count.get()).isEqualTo(1);
     }
 
 }
