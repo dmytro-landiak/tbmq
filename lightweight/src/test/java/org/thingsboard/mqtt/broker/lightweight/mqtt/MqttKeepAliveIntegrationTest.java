@@ -84,29 +84,30 @@ class MqttKeepAliveIntegrationTest extends AbstractMqttIntegrationTest {
     }
 
     /**
-     * Builds a raw MQTT 3.1.1 CONNECT packet with the given clientId and keepAlive seconds.
+     * Builds a raw MQTT 3.1.1 CONNECT packet with the given clientId, keepAlive seconds,
+     * and the built-in {@code tbmq/tbmq} credentials (required since auth enforcement is active).
      *
      * <p>Packet structure per MQTT 3.1.1 spec:
      * <ul>
      *   <li>Fixed header: 0x10, remaining length</li>
      *   <li>Protocol name: "MQTT" (2 length bytes + 4 chars)</li>
      *   <li>Protocol level: 4 (MQTT 3.1.1)</li>
-     *   <li>Connect flags: 0x02 (cleanSession=1, no will, no credentials)</li>
+     *   <li>Connect flags: 0xC2 (cleanSession=1, username=1, password=1)</li>
      *   <li>Keep alive: 2 bytes MSB+LSB</li>
-     *   <li>ClientId: 2 length bytes + clientId bytes (UTF-8)</li>
+     *   <li>Payload: clientId, username, password (each prefixed with 2-byte length)</li>
      * </ul>
      */
     private static byte[] buildMqttConnectPacket(String clientId, int keepAlive) {
         byte[] clientIdBytes = clientId.getBytes(StandardCharsets.UTF_8);
-        int clientIdLen = clientIdBytes.length;
+        byte[] usernameBytes = "tbmq".getBytes(StandardCharsets.UTF_8);
+        byte[] passwordBytes = "tbmq".getBytes(StandardCharsets.UTF_8);
 
         // Variable header: protocol name (6 bytes) + protocol level (1) + connect flags (1) + keep alive (2) = 10 bytes
         int variableHeaderLen = 10;
-        // Payload: 2 (clientId length prefix) + clientId bytes
-        int payloadLen = 2 + clientIdLen;
+        // Payload: clientId (2+len) + username (2+len) + password (2+len)
+        int payloadLen = 2 + clientIdBytes.length + 2 + usernameBytes.length + 2 + passwordBytes.length;
         int remainingLength = variableHeaderLen + payloadLen;
 
-        // Total packet: 1 (fixed header type) + 1 (remaining length, assuming < 128) + remainingLength
         byte[] packet = new byte[2 + remainingLength];
         int i = 0;
 
@@ -125,17 +126,29 @@ class MqttKeepAliveIntegrationTest extends AbstractMqttIntegrationTest {
         // Protocol level: 4 = MQTT 3.1.1
         packet[i++] = 0x04;
 
-        // Connect flags: cleanSession=1 (0x02), no will, no credentials
-        packet[i++] = 0x02;
+        // Connect flags: cleanSession=1 (0x02), username=1 (0x80), password=1 (0x40) = 0xC2
+        packet[i++] = (byte) 0xC2;
 
         // Keep alive: MSB then LSB
         packet[i++] = (byte) ((keepAlive >> 8) & 0xFF);
         packet[i++] = (byte) (keepAlive & 0xFF);
 
         // ClientId: 2-byte length prefix + UTF-8 bytes
-        packet[i++] = (byte) ((clientIdLen >> 8) & 0xFF);
-        packet[i++] = (byte) (clientIdLen & 0xFF);
-        System.arraycopy(clientIdBytes, 0, packet, i, clientIdLen);
+        packet[i++] = (byte) ((clientIdBytes.length >> 8) & 0xFF);
+        packet[i++] = (byte) (clientIdBytes.length & 0xFF);
+        System.arraycopy(clientIdBytes, 0, packet, i, clientIdBytes.length);
+        i += clientIdBytes.length;
+
+        // Username
+        packet[i++] = (byte) ((usernameBytes.length >> 8) & 0xFF);
+        packet[i++] = (byte) (usernameBytes.length & 0xFF);
+        System.arraycopy(usernameBytes, 0, packet, i, usernameBytes.length);
+        i += usernameBytes.length;
+
+        // Password
+        packet[i++] = (byte) ((passwordBytes.length >> 8) & 0xFF);
+        packet[i++] = (byte) (passwordBytes.length & 0xFF);
+        System.arraycopy(passwordBytes, 0, packet, i, passwordBytes.length);
 
         return packet;
     }

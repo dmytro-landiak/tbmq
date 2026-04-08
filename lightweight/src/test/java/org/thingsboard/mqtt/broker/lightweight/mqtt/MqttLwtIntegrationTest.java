@@ -118,22 +118,26 @@ class MqttLwtIntegrationTest extends AbstractMqttIntegrationTest {
     }
 
     /**
-     * Builds a raw MQTT 3.1.1 CONNECT packet with will message.
+     * Builds a raw MQTT 3.1.1 CONNECT packet with will message and built-in {@code tbmq/tbmq}
+     * credentials (required since auth enforcement is active).
      *
-     * <p>Will flag set, will QoS 0, will retain false, clean session true.
-     * No username or password.
+     * <p>Will flag set, will QoS 0, will retain false, clean session true, username + password set.
      */
     private byte[] buildMqttConnectWithWill(String clientId, int keepAlive, String willTopic, byte[] willPayload) {
         byte[] clientIdBytes = clientId.getBytes(StandardCharsets.UTF_8);
         byte[] willTopicBytes = willTopic.getBytes(StandardCharsets.UTF_8);
+        byte[] usernameBytes = "tbmq".getBytes(StandardCharsets.UTF_8);
+        byte[] passwordBytes = "tbmq".getBytes(StandardCharsets.UTF_8);
 
         // Variable header: 10 bytes (protocol name 6 + level 1 + flags 1 + keep-alive 2)
         int variableHeaderLen = 10;
 
-        // Payload: clientId (2+len) + willTopic (2+len) + willPayload (2+len)
+        // Payload: clientId (2+len) + willTopic (2+len) + willPayload (2+len) + username (2+len) + password (2+len)
         int payloadLen = 2 + clientIdBytes.length
                 + 2 + willTopicBytes.length
-                + 2 + willPayload.length;
+                + 2 + willPayload.length
+                + 2 + usernameBytes.length
+                + 2 + passwordBytes.length;
 
         int remainingLength = variableHeaderLen + payloadLen;
 
@@ -155,9 +159,9 @@ class MqttLwtIntegrationTest extends AbstractMqttIntegrationTest {
         // Protocol level: 4 (MQTT 3.1.1)
         packet[i++] = 0x04;
 
-        // Connect flags: cleanSession=1 (0x02), willFlag=1 (0x04), willQos=0, willRetain=0
-        // 0x02 | 0x04 = 0x06
-        packet[i++] = 0x06;
+        // Connect flags: cleanSession=1 (0x02), willFlag=1 (0x04), willQos=0, willRetain=0,
+        //                username=1 (0x80), password=1 (0x40) → 0x02 | 0x04 | 0x80 | 0x40 = 0xC6
+        packet[i++] = (byte) 0xC6;
 
         // Keep alive
         packet[i++] = (byte) ((keepAlive >> 8) & 0xFF);
@@ -179,6 +183,18 @@ class MqttLwtIntegrationTest extends AbstractMqttIntegrationTest {
         packet[i++] = (byte) ((willPayload.length >> 8) & 0xFF);
         packet[i++] = (byte) (willPayload.length & 0xFF);
         System.arraycopy(willPayload, 0, packet, i, willPayload.length);
+        i += willPayload.length;
+
+        // Username
+        packet[i++] = (byte) ((usernameBytes.length >> 8) & 0xFF);
+        packet[i++] = (byte) (usernameBytes.length & 0xFF);
+        System.arraycopy(usernameBytes, 0, packet, i, usernameBytes.length);
+        i += usernameBytes.length;
+
+        // Password
+        packet[i++] = (byte) ((passwordBytes.length >> 8) & 0xFF);
+        packet[i++] = (byte) (passwordBytes.length & 0xFF);
+        System.arraycopy(passwordBytes, 0, packet, i, passwordBytes.length);
 
         return packet;
     }

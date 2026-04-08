@@ -1,5 +1,6 @@
 package org.thingsboard.mqtt.broker.lightweight.mqtt;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
@@ -7,7 +8,13 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.BasicMqttCredentials;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.CredentialType;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightCredential;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightCredentialService;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.PubSubAuthorizationRules;
 import org.thingsboard.mqtt.broker.lightweight.server.MqttTcpServerBootstrap;
 
 import java.util.ArrayList;
@@ -42,7 +49,19 @@ public abstract class AbstractMqttIntegrationTest {
     @Autowired
     protected MqttTcpServerBootstrap mqttServer;
 
+    @Autowired
+    protected LightweightCredentialService credentialService;
+
+    @Autowired
+    protected ObjectMapper objectMapper;
+
+    @Autowired
+    protected BCryptPasswordEncoder passwordEncoder;
+
     protected final List<MqttClient> clients = new ArrayList<>();
+
+    /** Credentials created during a test that need to be cleaned up. */
+    protected final List<String> createdCredentialIds = new ArrayList<>();
 
     /**
      * Returns the broker URL for test clients to connect to.
@@ -67,17 +86,58 @@ public abstract class AbstractMqttIntegrationTest {
     /**
      * Returns sensible default {@link MqttConnectOptions} suitable for integration tests:
      * clean session enabled, 5-second connection timeout, 30-second keep-alive.
+     * Uses the built-in {@code tbmq/tbmq} credentials so that auth enforcement is satisfied.
      */
     protected MqttConnectOptions defaultConnectOptions() {
         MqttConnectOptions opts = new MqttConnectOptions();
         opts.setCleanSession(true);
         opts.setConnectionTimeout(5);
         opts.setKeepAliveInterval(30);
+        opts.setUserName("tbmq");
+        opts.setPassword("tbmq".toCharArray());
         return opts;
     }
 
     /**
+     * Returns {@link MqttConnectOptions} with the given username and password.
+     */
+    protected MqttConnectOptions authConnectOptions(String username, String password) {
+        MqttConnectOptions opts = new MqttConnectOptions();
+        opts.setCleanSession(true);
+        opts.setConnectionTimeout(5);
+        opts.setKeepAliveInterval(30);
+        opts.setUserName(username);
+        opts.setPassword(password.toCharArray());
+        return opts;
+    }
+
+    /**
+     * Creates and saves a BASIC credential with the given username, password, and ACL patterns.
+     * The credential is registered for automatic cleanup in {@code @AfterEach}.
+     *
+     * @param username    the MQTT username
+     * @param password    the plain-text password (will be bcrypt-hashed before storing)
+     * @param pubPatterns regex patterns for allowed publish topics
+     * @param subPatterns regex patterns for allowed subscribe topic filters
+     */
+    protected void createBasicCredential(String username, String password,
+                                         List<String> pubPatterns, List<String> subPatterns) {
+        try {
+            String hashedPassword = passwordEncoder.encode(password);
+            BasicMqttCredentials basicCreds = new BasicMqttCredentials(
+                    hashedPassword, new PubSubAuthorizationRules(pubPatterns, subPatterns));
+            String credentialValue = objectMapper.writeValueAsString(basicCreds);
+            LightweightCredential credential = new LightweightCredential(username, CredentialType.BASIC, credentialValue);
+            credentialService.saveCredential(credential);
+            createdCredentialIds.add(username);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create test credential for username: " + username, e);
+        }
+    }
+
+    /**
      * Disconnects and closes all clients created during the test to avoid resource leaks.
+     * Also deletes any test credentials created via {@link #createBasicCredential}.
      */
     @AfterEach
     void disconnectClients() {
@@ -91,6 +151,14 @@ public abstract class AbstractMqttIntegrationTest {
             }
         }
         clients.clear();
+        // Clean up test credentials
+        for (String credentialId : createdCredentialIds) {
+            try {
+                credentialService.deleteCredential(credentialId);
+            } catch (Exception ignored) {
+            }
+        }
+        createdCredentialIds.clear();
     }
 
 }
