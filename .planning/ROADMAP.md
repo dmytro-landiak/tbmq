@@ -60,7 +60,7 @@ Plans:
   3. The dispatch implementation (LinkedBlockingQueue or Disruptor) can be swapped by changing a single configuration class without modifying any consumer code
 **Plans:** 3 plans
 Plans:
-- [ ] 03-01-PLAN.md — Subscription trie + retained message trie (copied from TBMQ, adapted)
+- [x] 03-01-PLAN.md — Subscription trie + retained message trie (copied from TBMQ, adapted)
 - [ ] 03-02-PLAN.md — Dispatch service + queue factory + ClientActor refactoring
 - [ ] 03-03-PLAN.md — Integration tests (wildcard delivery, $SYS/ exclusion, retained wildcards) + dispatch unit tests
 

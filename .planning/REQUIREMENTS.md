@@ -39,7 +39,7 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFR-01**: Broker uses in-process message dispatch (queue-based) to route messages between publisher and subscriber sessions, replacing Kafka
+- [x] **INFR-01**: Broker uses in-process message dispatch (queue-based) to route messages between publisher and subscriber sessions, replacing Kafka
 - [x] **INFR-02**: Broker uses RocksDB as embedded key-value store for durable state (credentials, ACLs), replacing PostgreSQL
 - [x] **INFR-03**: Broker uses in-process cache (Caffeine) for hot-path lookups (session state, subscription matching), replacing Redis/Valkey
 - [ ] **INFR-04**: Message dispatch interface is abstracted to allow swapping queue implementations without refactoring consumers
@@ -110,7 +110,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROTO-07 | Phase 2 | Complete |
 | PROTO-11 | Phase 2 | Complete |
 | TRAN-01 | Phase 2 | Complete |
-| INFR-01 | Phase 3 | Pending |
+| INFR-01 | Phase 3 | Complete |
 | INFR-04 | Phase 3 | Pending |
 | AUTH-01 | Phase 4 | Pending |
 | AUTH-02 | Phase 4 | Pending |

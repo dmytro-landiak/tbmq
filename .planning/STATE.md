@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-04-08T08:13:37.322Z"
-last_activity: 2026-04-07
+stopped_at: Completed 03-message-dispatch 03-01-PLAN.md
+last_updated: "2026-04-08T16:09:01.130Z"
+last_activity: 2026-04-08
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 11
+  completed_plans: 9
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** A fully functional MQTT broker that starts with a single `docker run` command and requires zero external infrastructure
-**Current focus:** Phase 02 — core-protocol-mqtt-3-1-1
+**Current focus:** Phase 03 — message-dispatch
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
+Phase: 03 (message-dispatch) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-04-07
+Last activity: 2026-04-08
 
 Progress: [████████████████████] 3/3 plans (100%)
 
@@ -61,6 +61,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 02-core-protocol-mqtt-3-1-1 P03 | 6 | 3 tasks | 16 files |
 | Phase 02-core-protocol-mqtt-3-1-1 P04 | 8 | 2 tasks | 19 files |
 | Phase 02-core-protocol-mqtt-3-1-1 P05 | 13 | 2 tasks | 14 files |
+| Phase 03-message-dispatch P01 | 3 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 02-core-protocol-mqtt-3-1-1]: DefaultSubscriptionRegistry uses ConcurrentHashMap.compute() for atomic re-subscribe QoS updates; inboundQos2 stores PublishMsg (not Boolean) for QoS 2 delivery on PUBREL; wildcard subscriptions stored but not matched in Phase 2 (exact-match only D-06)
 - [Phase 02-core-protocol-mqtt-3-1-1]: LWT keyed by session UUID (not clientId) for correct takeover isolation: old session and new session have different UUIDs, so their LWT entries don't interfere during client takeover
 - [Phase 02-core-protocol-mqtt-3-1-1]: Raw socket MQTT connect packet used for LWT ungraceful disconnect tests — Paho disconnectForcibly causes 30-70s delays due to internal keepalive timer; raw socket close is immediate and deterministic
+- [Phase 03-message-dispatch]: ConcurrentHashMap.newKeySet() used over Guava Sets.newConcurrentHashSet() — avoids Guava dependency in lightweight module
+- [Phase 03-message-dispatch]: throws Exception in clearEmptyNodes() interface methods — avoids importing custom TBMQ exception hierarchy in lightweight
+- [Phase 03-message-dispatch]: notStartingWith$() guards against empty topic string in ConcurrentMapSubscriptionTrie — fixes latent TBMQ upstream bug
 
 ### Roadmap Evolution
 
@@ -107,6 +111,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T08:13:37.320Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-message-dispatch/03-CONTEXT.md
+Last session: 2026-04-08T16:09:01.128Z
+Stopped at: Completed 03-message-dispatch 03-01-PLAN.md
+Resume file: None
