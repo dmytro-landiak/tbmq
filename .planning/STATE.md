@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-message-dispatch 03-01-PLAN.md
-last_updated: "2026-04-08T16:09:01.130Z"
+stopped_at: Completed 03-message-dispatch 03-02-PLAN.md
+last_updated: "2026-04-08T16:21:09.980Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 100
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 03 (message-dispatch) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-08
 
@@ -62,6 +62,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 02-core-protocol-mqtt-3-1-1 P04 | 8 | 2 tasks | 19 files |
 | Phase 02-core-protocol-mqtt-3-1-1 P05 | 13 | 2 tasks | 14 files |
 | Phase 03-message-dispatch P01 | 3 | 2 tasks | 8 files |
+| Phase 03-message-dispatch P02 | 9 | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,9 @@ Recent decisions affecting current work:
 - [Phase 03-message-dispatch]: ConcurrentHashMap.newKeySet() used over Guava Sets.newConcurrentHashSet() — avoids Guava dependency in lightweight module
 - [Phase 03-message-dispatch]: throws Exception in clearEmptyNodes() interface methods — avoids importing custom TBMQ exception hierarchy in lightweight
 - [Phase 03-message-dispatch]: notStartingWith$() guards against empty topic string in ConcurrentMapSubscriptionTrie — fixes latent TBMQ upstream bug
+- [Phase 03-message-dispatch]: queue.offer() enforced over queue.put() — non-blocking dispatch per D-04; drop and count when full
+- [Phase 03-message-dispatch]: @EqualsAndHashCode(of=clientId) on Subscription — trie addOrReplace requires clientId-only equality for correct re-subscribe QoS update
+- [Phase 03-message-dispatch]: Per-client topic filter index in DefaultSubscriptionRegistry — avoids O(trie_size) full scan on disconnect; removeAllSubscriptions is O(client_subscriptions)
 
 ### Roadmap Evolution
 
@@ -111,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T16:09:01.128Z
-Stopped at: Completed 03-message-dispatch 03-01-PLAN.md
+Last session: 2026-04-08T16:21:09.978Z
+Stopped at: Completed 03-message-dispatch 03-02-PLAN.md
 Resume file: None

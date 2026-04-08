@@ -61,7 +61,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 03-01-PLAN.md — Subscription trie + retained message trie (copied from TBMQ, adapted)
-- [ ] 03-02-PLAN.md — Dispatch service + queue factory + ClientActor refactoring
+- [x] 03-02-PLAN.md — Dispatch service + queue factory + ClientActor refactoring
 - [ ] 03-03-PLAN.md — Integration tests (wildcard delivery, $SYS/ exclusion, retained wildcards) + dispatch unit tests
 
 ### Phase 4: Security
