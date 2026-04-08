@@ -15,12 +15,15 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.actors.client;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActor;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorCreator;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorId;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbTypeActorId;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
+import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
 import org.thingsboard.mqtt.broker.lightweight.service.dispatch.MsgDispatcherService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsgService;
@@ -46,6 +49,9 @@ public class ClientActorCreator implements TbActorCreator {
     private final RetainedMsgService retainedMsgService;
     private final LastWillService lastWillService;
     private final MsgDispatcherService msgDispatcherService;
+    private final LightweightAuthService authService;
+    private final AuthorizationRuleService authorizationRuleService;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public TbActorId createActorId() {
@@ -55,7 +61,8 @@ public class ClientActorCreator implements TbActorCreator {
     @Override
     public TbActor createActor() {
         return new ClientActor(sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
-                retainedMsgService, lastWillService, msgDispatcherService);
+                retainedMsgService, lastWillService, msgDispatcherService,
+                authService, authorizationRuleService, meterRegistry);
     }
 
 }

@@ -19,8 +19,11 @@ import io.netty.channel.ChannelHandlerContext;
 import lombok.Getter;
 import lombok.Setter;
 import org.thingsboard.mqtt.broker.lightweight.packet.PacketIdAllocator;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.AuthRulePatterns;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.PublishMsg;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -86,6 +89,12 @@ public class ClientSessionCtx {
 
     /** Per-session packet ID allocator for outbound QoS 1/2 messages. */
     private final PacketIdAllocator packetIdAllocator;
+
+    /**
+     * Compiled ACL patterns for this session, set once after successful authentication.
+     * Empty list means anonymous access — ACL checks are bypassed entirely.
+     */
+    private volatile List<AuthRulePatterns> authRulePatterns = Collections.emptyList();
 
     public ClientSessionCtx(UUID sessionId, ChannelHandlerContext channel) {
         this.sessionId = sessionId;

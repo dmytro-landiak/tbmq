@@ -16,6 +16,7 @@
 package org.thingsboard.mqtt.broker.lightweight.actors.client.msg;
 
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.ssl.SslHandler;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.thingsboard.mqtt.broker.lightweight.actors.MsgType;
@@ -27,6 +28,10 @@ import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionCtx;
  *
  * <p>The actor uses this message to validate the connection, configure session state,
  * register the session, and send CONNACK back to the client.
+ *
+ * <p>The {@link #sslHandler} field is non-null only for TLS connections and is used by
+ * the actor to extract the peer certificate chain for mTLS/X.509 client certificate authentication.
+ * For plain TCP connections, {@code sslHandler} is {@code null}.
  */
 @Getter
 @RequiredArgsConstructor
@@ -34,6 +39,12 @@ public class MqttConnectMsg implements TbActorMsg {
 
     private final MqttConnectMessage connectMessage;
     private final ClientSessionCtx sessionCtx;
+
+    /**
+     * The Netty SSL handler for TLS connections; {@code null} for plain TCP.
+     * Used to extract peer certificates for X.509 client certificate authentication.
+     */
+    private final SslHandler sslHandler;
 
     @Override
     public MsgType getMsgType() {

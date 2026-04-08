@@ -15,6 +15,7 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.server;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -27,6 +28,7 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
@@ -49,6 +51,8 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.PingMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
+import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
 import org.thingsboard.mqtt.broker.lightweight.service.dispatch.MsgDispatcherService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsgService;
@@ -90,6 +94,9 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
     private final RetainedMsgService retainedMsgService;
     private final LastWillService lastWillService;
     private final MsgDispatcherService msgDispatcherService;
+    private final LightweightAuthService authService;
+    private final AuthorizationRuleService authorizationRuleService;
+    private final MeterRegistry meterRegistry;
 
     /** Session context — null until CONNECT is processed. */
     private ClientSessionCtx sessionCtx;
@@ -236,13 +243,17 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         sessionCtx = new ClientSessionCtx(UUID.randomUUID(), ctx);
         sessionCtx.setClientId(clientId);
 
+        // Extract SslHandler for mTLS/X.509 client certificate authentication (null for plain TCP)
+        SslHandler sslHandler = (SslHandler) ctx.pipeline().get("ssl");
+
         TbTypeActorId actorId = new TbTypeActorId("client", clientId);
         actorSystem.createRootActor(CLIENT_DISPATCHER, new ClientActorCreator(
                 clientId, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
-                retainedMsgService, lastWillService, msgDispatcherService));
+                retainedMsgService, lastWillService, msgDispatcherService,
+                authService, authorizationRuleService, meterRegistry));
 
         actorSystem.tell(actorId, new SessionInitMsg(sessionCtx));
-        actorSystem.tell(actorId, new MqttConnectMsg(connectMsg, sessionCtx));
+        actorSystem.tell(actorId, new MqttConnectMsg(connectMsg, sessionCtx, sslHandler));
 
         connected = true;
     }

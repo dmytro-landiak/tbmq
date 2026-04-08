@@ -15,6 +15,7 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.server;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
@@ -25,6 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorSystem;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
+import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
 import org.thingsboard.mqtt.broker.lightweight.service.dispatch.MsgDispatcherService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsgService;
@@ -65,6 +68,9 @@ public class MqttChannelInitializer extends ChannelInitializer<SocketChannel> {
     private final RetainedMsgService retainedMsgService;
     private final LastWillService lastWillService;
     private final MsgDispatcherService msgDispatcherService;
+    private final LightweightAuthService authService;
+    private final AuthorizationRuleService authorizationRuleService;
+    private final MeterRegistry meterRegistry;
 
     @Override
     protected void initChannel(SocketChannel ch) {
@@ -80,7 +86,8 @@ public class MqttChannelInitializer extends ChannelInitializer<SocketChannel> {
                 .addLast("encoder", MqttEncoder.INSTANCE)
                 // Per-channel session handler: NOT @Sharable — new instance per channel
                 .addLast("handler", new MqttSessionHandler(actorSystem, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
-                        retainedMsgService, lastWillService, msgDispatcherService));
+                        retainedMsgService, lastWillService, msgDispatcherService,
+                        authService, authorizationRuleService, meterRegistry));
     }
 
 }

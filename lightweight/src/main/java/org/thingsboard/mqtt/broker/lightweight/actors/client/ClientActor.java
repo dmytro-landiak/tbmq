@@ -15,9 +15,11 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.actors.client;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +43,9 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.PingMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
+import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.AuthResult;
+import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
 import org.thingsboard.mqtt.broker.lightweight.service.dispatch.MsgDispatcherService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.PublishMsg;
@@ -55,6 +60,7 @@ import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.DisconnectReasonType;
 import org.thingsboard.mqtt.broker.lightweight.session.SessionState;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -89,6 +95,9 @@ public class ClientActor extends AbstractTbActor {
     private final RetainedMsgService retainedMsgService;
     private final LastWillService lastWillService;
     private final MsgDispatcherService msgDispatcherService;
+    private final LightweightAuthService authService;
+    private final AuthorizationRuleService authorizationRuleService;
+    private final MeterRegistry meterRegistry;
 
     /** Session context set on SESSION_INIT_MSG. */
     private ClientSessionCtx sessionCtx;
@@ -145,6 +154,24 @@ public class ClientActor extends AbstractTbActor {
         // Per D-10: always behave as Clean Session=1 in R1
         sessionCtx.setCleanSession(true);
         sessionCtx.setKeepAliveSeconds(keepAliveSeconds);
+
+        // Auth check BEFORE session registration (per D-04)
+        String username = connectMessage.payload().userName();
+        byte[] passwordBytes = connectMessage.payload().passwordInBytes();
+        String password = passwordBytes != null ? new String(passwordBytes, StandardCharsets.UTF_8) : null;
+        SslHandler sslHandler = msg.getSslHandler();
+
+        AuthResult authResult = authService.authenticate(username, password, sslHandler);
+        if (!authResult.isSuccess()) {
+            log.warn("[{}] Authentication failed: {}", clientId, authResult.getFailureReason());
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createConnAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED, false));
+            sessionCtx.getChannel().close();
+            return;
+        }
+
+        // Store auth rule patterns on session context for ACL checks
+        sessionCtx.setAuthRulePatterns(authResult.getAuthRulePatterns());
 
         // Store LWT if will flag is set
         if (willFlag) {
@@ -250,8 +277,9 @@ public class ClientActor extends AbstractTbActor {
             lastWillService.removeWillWithoutDelivery(sessionCtx.getSessionId());
         }
 
-        // Clean up subscriptions and QoS state
+        // Clean up subscriptions, QoS state, and ACL cache
         subscriptionRegistry.removeAllSubscriptions(clientId);
+        authorizationRuleService.evict(clientId);
         sessionCtx.getInboundQos2().clear();
         sessionCtx.getOutboundQos1().clear();
         sessionCtx.getOutboundQos2().clear();
@@ -280,6 +308,15 @@ public class ClientActor extends AbstractTbActor {
         for (MqttTopicSubscription topicSub : topicSubs) {
             String topicFilter = topicSub.topicName();
             int requestedQos = topicSub.qualityOfService().value();
+
+            // ACL check for subscribe (per D-11)
+            if (!authorizationRuleService.isSubAuthorized(topicFilter, sessionCtx.getAuthRulePatterns())) {
+                log.debug("[{}] SUBSCRIBE denied to '{}' (ACL)", clientId, topicFilter);
+                meterRegistry.counter("mqtt.auth.denied.total", "type", "subscribe").increment();
+                grantedQosList.add(0x80); // Failure return code per MQTT 3.1.1 spec 3.9.3
+                continue; // Skip subscription registration and retained message delivery
+            }
+
             int grantedQos = Math.min(requestedQos, 2); // broker supports up to QoS 2
             grantedQosList.add(grantedQos);
 
@@ -335,6 +372,21 @@ public class ClientActor extends AbstractTbActor {
         byte[] payload = msg.getPayload();
         boolean retain = msg.isRetain();
         int inboundPacketId = msg.getPacketId();
+
+        // ACL check for publish (per D-11)
+        if (!authorizationRuleService.isPubAuthorized(clientId, topicName, sessionCtx.getAuthRulePatterns())) {
+            log.debug("[{}] PUBLISH denied to topic '{}' (ACL)", clientId, topicName);
+            meterRegistry.counter("mqtt.auth.denied.total", "type", "publish").increment();
+            // Still send QoS acks to avoid protocol violation, but drop the message
+            if (publishQos == 1) {
+                sessionCtx.getChannel().writeAndFlush(messageGenerator.createPubAck(inboundPacketId));
+            } else if (publishQos == 2) {
+                sessionCtx.getChannel().writeAndFlush(messageGenerator.createPubRec(inboundPacketId));
+                // Store a sentinel so PUBREL completes the flow without delivery
+                sessionCtx.getInboundQos2().put(inboundPacketId, "ACL_DENIED");
+            }
+            return;
+        }
 
         if (publishQos == 1) {
             // QoS 1: Send PUBACK to publisher, then deliver
