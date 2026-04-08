@@ -22,6 +22,15 @@ tbmq:
     wait-for-clear-lock-ms: "${TBMQ_SUBSCRIPTION_TRIE_CLEAR_LOCK_MS:5000}"
   retain-msg-trie:
     wait-for-clear-lock-ms: "${TBMQ_RETAIN_MSG_TRIE_CLEAR_LOCK_MS:5000}"
+  security:
+    anonymous-enabled: "${TBMQ_SECURITY_ANONYMOUS_ENABLED:false}"
+  tls:
+    enabled: "${TBMQ_TLS_ENABLED:false}"
+    port: "${TBMQ_MQTTS_PORT:8883}"
+    cert-path: "${TBMQ_TLS_CERT_PATH:}"
+    key-path: "${TBMQ_TLS_KEY_PATH:}"
+    client-auth: "${TBMQ_TLS_CLIENT_AUTH:NONE}"
+    trust-cert-path: "${TBMQ_TLS_TRUST_CERT_PATH:}"
 
 management:
   endpoints:
