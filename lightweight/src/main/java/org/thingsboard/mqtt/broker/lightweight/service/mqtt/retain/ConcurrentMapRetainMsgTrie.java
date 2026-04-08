@@ -44,7 +44,7 @@ public class ConcurrentMapRetainMsgTrie<T> implements RetainMsgTrie<T> {
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     @Setter
-    @Value("${mqtt.retain-msg-trie.wait-for-clear-lock-ms:5000}")
+    @Value("${tbmq.retain-msg-trie.wait-for-clear-lock-ms:5000}")
     private int waitForClearLockMs;
 
     public ConcurrentMapRetainMsgTrie() {

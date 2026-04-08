@@ -47,7 +47,7 @@ public class ConcurrentMapSubscriptionTrie<T> implements SubscriptionTrie<T> {
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     @Setter
-    @Value("${mqtt.subscription-trie.wait-for-clear-lock-ms:5000}")
+    @Value("${tbmq.subscription-trie.wait-for-clear-lock-ms:5000}")
     private int waitForClearLockMs;
 
     public ConcurrentMapSubscriptionTrie() {

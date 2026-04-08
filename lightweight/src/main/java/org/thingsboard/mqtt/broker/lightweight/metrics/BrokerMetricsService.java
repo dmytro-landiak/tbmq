@@ -40,6 +40,12 @@ public class BrokerMetricsService {
                 .description("Total MQTT messages received")
                 .register(meterRegistry);
 
+        // Register dropped messages counter — Micrometer deduplicates by name, so this ensures
+        // the counter is visible at startup even before the dispatch service starts
+        Counter.builder("mqtt.dispatch.dropped.total")
+                .description("Messages dropped due to full dispatch queue")
+                .register(meterRegistry);
+
         log.info("Broker metrics service initialized");
     }
 
