@@ -6,12 +6,6 @@ TBMQ Lightweight is built bottom-up: infrastructure first, then protocol correct
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
 - [x] **Phase 1: Foundation** - Spring Boot app, RocksDB JNI, Netty TCP bootstrap, and multi-arch Docker image with Prometheus metrics (completed 2026-04-03)
 - [x] **Phase 2: Core Protocol (MQTT 3.1.1)** - Full MQTT 3.1.1 broker over TCP: QoS 0/1/2, retained messages, LWT, keep-alive, and client takeover (completed 2026-04-07)
 - [ ] **Phase 3: Message Dispatch** - In-process publish routing via abstracted dispatch interface; wildcard subscription trie; non-blocking Netty handoff
