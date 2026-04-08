@@ -103,7 +103,7 @@ public class ConcurrentMapSubscriptionTrie<T> implements SubscriptionTrie<T> {
     }
 
     private boolean notStartingWith$(String topic, TopicPosition<T> topicPosition) {
-        return topicPosition.segmentStartIndex != 0 || topic.charAt(0) != '$';
+        return topicPosition.segmentStartIndex != 0 || topic.isEmpty() || topic.charAt(0) != '$';
     }
 
     private List<ValueWithTopicFilter<T>> wrapValuesWithTopicFilter(String topicFilter, Collection<T> values) {
