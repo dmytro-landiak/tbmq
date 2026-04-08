@@ -8,7 +8,7 @@ TBMQ Lightweight is built bottom-up: infrastructure first, then protocol correct
 
 - [x] **Phase 1: Foundation** - Spring Boot app, RocksDB JNI, Netty TCP bootstrap, and multi-arch Docker image with Prometheus metrics (completed 2026-04-03)
 - [x] **Phase 2: Core Protocol (MQTT 3.1.1)** - Full MQTT 3.1.1 broker over TCP: QoS 0/1/2, retained messages, LWT, keep-alive, and client takeover (completed 2026-04-07)
-- [ ] **Phase 3: Message Dispatch** - In-process publish routing via abstracted dispatch interface; wildcard subscription trie; non-blocking Netty handoff
+- [x] **Phase 3: Message Dispatch** - In-process publish routing via abstracted dispatch interface; wildcard subscription trie; non-blocking Netty handoff (completed 2026-04-08)
 - [ ] **Phase 4: Security** - TLS termination, username/password auth and X.509 mTLS backed by RocksDB, topic-level ACL, secure-by-default configuration
 - [ ] **Phase 5: WebSocket Transport** - MQTT over ws:// and wss://, correct subprotocol header handling for browser client compatibility
 - [ ] **Phase 6: MQTT 5.0** - MQTT 5.0 session expiry, user properties, reason codes, topic aliases, shared subscriptions, and protocol version negotiation
@@ -58,11 +58,11 @@ Plans:
   1. Published messages are delivered to all matching subscribers (including `+` and `#` wildcard topics) via the in-process queue; Kafka is not required
   2. Under sustained publish load, Netty I/O thread event loops remain unblocked — verified by a spike load test showing no I/O stall events
   3. The dispatch implementation (LinkedBlockingQueue or Disruptor) can be swapped by changing a single configuration class without modifying any consumer code
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 03-01-PLAN.md — Subscription trie + retained message trie (copied from TBMQ, adapted)
 - [x] 03-02-PLAN.md — Dispatch service + queue factory + ClientActor refactoring
-- [ ] 03-03-PLAN.md — Integration tests (wildcard delivery, $SYS/ exclusion, retained wildcards) + dispatch unit tests
+- [x] 03-03-PLAN.md — Integration tests (wildcard delivery, $SYS/ exclusion, retained wildcards) + dispatch unit tests
 
 ### Phase 4: Security
 **Goal**: Clients must authenticate before connecting, topic-level ACL rules are enforced on publish and subscribe, TLS terminates at the broker via mounted certificates, and X.509 client certificates are accepted for mutual TLS authentication — all backed by RocksDB so configuration survives restarts
@@ -116,7 +116,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-04-03 |
 | 2. Core Protocol (MQTT 3.1.1) | 5/5 | Complete   | 2026-04-07 |
-| 3. Message Dispatch | 0/3 | Not started | - |
+| 3. Message Dispatch | 3/3 | Complete   | 2026-04-08 |
 | 4. Security | 0/TBD | Not started | - |
 | 5. WebSocket Transport | 0/TBD | Not started | - |
 | 6. MQTT 5.0 | 0/TBD | Not started | - |
