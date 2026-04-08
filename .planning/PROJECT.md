@@ -29,7 +29,7 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 - [ ] MQTT over WebSocket (ws:// and wss://)
 - [ ] Username/password and X.509 certificate-based authentication backed by RocksDB
 - [ ] Topic-level ACL authorization stored in RocksDB
-- [ ] In-process message dispatch (Disruptor or BlockingQueue) replacing Kafka
+- [x] In-process message dispatch (BlockingQueue) replacing Kafka — Validated in Phase 3: Message Dispatch
 
 ### Out of Scope
 
@@ -65,7 +65,7 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 |----------|-----------|---------|
 | Separate repository over configurable mode | Infrastructure layers differ enough that dual-mode branching in main repo creates long-term maintenance cost | — Pending |
 | RocksDB for embedded storage | Battle-tested for embedded KV workloads, already in ThingsBoard ecosystem, small disk footprint | Validated — Phase 1 |
-| In-process message dispatch over Kafka | Single-node deployment removes need for distributed messaging; in-process queue provides lower latency | — Pending |
+| In-process message dispatch over Kafka | Single-node deployment removes need for distributed messaging; in-process queue provides lower latency | Validated — Phase 3 |
 | Clean Session only in R1 | Persistent sessions add significant complexity; defer to R2 to ship core broker faster | Validated — Phase 2 |
 | No Web UI in R1 | Focus on broker core; UI adds frontend build complexity without core value for evaluation use case | — Pending |
 
@@ -87,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-07 after Phase 2 Core Protocol (MQTT 3.1.1) completion*
+*Last updated: 2026-04-08 after Phase 3 Message Dispatch (wildcard trie + dispatch queue) completion*
