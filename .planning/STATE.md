@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 5 context gathered
-last_updated: "2026-04-09T11:48:00.797Z"
+stopped_at: Completed 05-websocket-transport plan 01 (05-01-PLAN.md)
+last_updated: "2026-04-09T12:15:41.056Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 16
+  completed_plans: 15
   percent: 100
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** A fully functional MQTT broker that starts with a single `docker run` command and requires zero external infrastructure
-**Current focus:** Phase 04 — security
+**Current focus:** Phase 05 — websocket-transport
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (websocket-transport) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
 Last activity: 2026-04-09
 
@@ -67,6 +67,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 04-security P01 | 7 | 1 tasks | 19 files |
 | Phase 04-security P02 | 14 | 2 tasks | 9 files |
 | Phase 04-security P03 | 30 | 2 tasks | 16 files |
+| Phase 05-websocket-transport P01 | 5 | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,9 @@ Recent decisions affecting current work:
 - [Phase 04-security]: SslContext cached at @PostConstruct — avoids PEM re-parsing on every connection
 - [Phase 04-security]: pom.xml reuseForks=true: all test classes run in single JVM fork to prevent OOM from multiple Spring Boot contexts (RocksDB + Netty per context; separate forks cause SIGKILL exit code 143)
 - [Phase 04-security]: classpath: prefix in PEM paths enables test cert loading from src/test/resources without filesystem dependency
+- [Phase 05-websocket-transport]: AbstractServerBootstrap does NOT override getPhase/isAutoStartup — each subclass controls its own SmartLifecycle phase
+- [Phase 05-websocket-transport]: WsTextFrameHandler trimmed: MqttSessionHandler.ADDRESS removed since lightweight has no ADDRESS field
+- [Phase 05-websocket-transport]: WsConfiguration uses @Value (not @ConfigurationProperties) to match TlsConfiguration pattern in lightweight
 
 ### Roadmap Evolution
 
@@ -130,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T11:48:00.794Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-websocket-transport/05-CONTEXT.md
+Last session: 2026-04-09T12:15:41.053Z
+Stopped at: Completed 05-websocket-transport plan 01 (05-01-PLAN.md)
+Resume file: None

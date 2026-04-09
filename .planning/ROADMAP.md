@@ -88,9 +88,9 @@ Plans:
   1. An MQTT client (e.g., Paho JavaScript, MQTT.js) connects over `ws://` on the configured WebSocket port and publishes/subscribes successfully
   2. An MQTT client connects over `wss://` using TLS with the same mounted server certificate; the WebSocket and TLS layers both function correctly in combination
   3. The broker responds with `Sec-WebSocket-Protocol: mqtt` in the WebSocket handshake response; a browser-based MQTT.js client does not reject the connection
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 05-01-PLAN.md — Abstract bootstrap + handler factory + refactor TCP/TLS + WS frame handlers + config
+- [x] 05-01-PLAN.md — Abstract bootstrap + handler factory + refactor TCP/TLS + WS frame handlers + config
 - [ ] 05-02-PLAN.md — WS/WSS bootstraps + channel initializers + integration tests
 
 ### Phase 6: MQTT 5.0
@@ -125,6 +125,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Core Protocol (MQTT 3.1.1) | 5/5 | Complete   | 2026-04-07 |
 | 3. Message Dispatch | 3/3 | Complete   | 2026-04-08 |
 | 4. Security | 3/3 | Complete   | 2026-04-09 |
-| 5. WebSocket Transport | 0/2 | In progress | - |
+| 5. WebSocket Transport | 1/2 | In Progress|  |
 | 6. MQTT 5.0 | 0/TBD | Not started | - |
 | 7. Hardening and Docker Release | 0/TBD | Not started | - |
