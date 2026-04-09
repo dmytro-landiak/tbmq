@@ -26,7 +26,7 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 
 - [ ] Full MQTT 5.0 protocol support (session expiry, user properties, reason codes, topic aliases, shared subscriptions)
 - [x] TLS termination via mounted certificates — Validated in Phase 4: Security
-- [ ] MQTT over WebSocket (ws:// and wss://)
+- [x] MQTT over WebSocket (ws:// and wss://) — Validated in Phase 5: WebSocket Transport
 - [x] Username/password and X.509 certificate-based authentication backed by RocksDB — Validated in Phase 4: Security
 - [x] Topic-level ACL authorization stored in RocksDB — Validated in Phase 4: Security
 - [x] In-process message dispatch (BlockingQueue) replacing Kafka — Validated in Phase 3: Message Dispatch
@@ -87,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-09 after Phase 4 Security (auth, ACL, TLS, mTLS) completion*
+*Last updated: 2026-04-09 after Phase 5 WebSocket Transport completion*
