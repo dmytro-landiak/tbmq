@@ -15,7 +15,6 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.server;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
@@ -24,16 +23,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.thingsboard.mqtt.broker.lightweight.actors.TbActorSystem;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
-import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
-import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
-import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
-import org.thingsboard.mqtt.broker.lightweight.service.dispatch.MsgDispatcherService;
-import org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain.RetainedMsgService;
-import org.thingsboard.mqtt.broker.lightweight.service.mqtt.will.LastWillService;
-import org.thingsboard.mqtt.broker.lightweight.service.subscription.SubscriptionRegistry;
-import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
 
 /**
  * Netty channel initializer for the MQTT TCP server.
@@ -60,17 +50,8 @@ import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
 public class MqttChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private final ConnectionCountHandler connectionCountHandler;
-    private final TbActorSystem actorSystem;
-    private final ClientSessionRegistry sessionRegistry;
-    private final MqttMessageGenerator messageGenerator;
+    private final MqttSessionHandlerFactory sessionHandlerFactory;
     private final MqttConfiguration mqttConfig;
-    private final SubscriptionRegistry subscriptionRegistry;
-    private final RetainedMsgService retainedMsgService;
-    private final LastWillService lastWillService;
-    private final MsgDispatcherService msgDispatcherService;
-    private final LightweightAuthService authService;
-    private final AuthorizationRuleService authorizationRuleService;
-    private final MeterRegistry meterRegistry;
 
     @Override
     protected void initChannel(SocketChannel ch) {
@@ -85,9 +66,7 @@ public class MqttChannelInitializer extends ChannelInitializer<SocketChannel> {
                 // MQTT encoder: @Sharable singleton
                 .addLast("encoder", MqttEncoder.INSTANCE)
                 // Per-channel session handler: NOT @Sharable — new instance per channel
-                .addLast("handler", new MqttSessionHandler(actorSystem, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
-                        retainedMsgService, lastWillService, msgDispatcherService,
-                        authService, authorizationRuleService, meterRegistry));
+                .addLast("handler", sessionHandlerFactory.create());
     }
 
 }
