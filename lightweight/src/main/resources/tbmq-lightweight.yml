@@ -31,6 +31,16 @@ tbmq:
     key-path: "${TBMQ_TLS_KEY_PATH:}"
     client-auth: "${TBMQ_TLS_CLIENT_AUTH:NONE}"
     trust-cert-path: "${TBMQ_TLS_TRUST_CERT_PATH:}"
+  ws:
+    enabled: "${TBMQ_WS_ENABLED:true}"
+    port: "${TBMQ_WS_PORT:8084}"
+    sub-protocols: "${TBMQ_WS_SUB_PROTOCOLS:mqttv3.1,mqtt}"
+    max-content-length: "${TBMQ_WS_MAX_CONTENT_LENGTH:65536}"
+  wss:
+    enabled: "${TBMQ_WSS_ENABLED:false}"
+    port: "${TBMQ_WSS_PORT:8085}"
+    sub-protocols: "${TBMQ_WSS_SUB_PROTOCOLS:mqttv3.1,mqtt}"
+    max-content-length: "${TBMQ_WSS_MAX_CONTENT_LENGTH:65536}"
 
 management:
   endpoints:
