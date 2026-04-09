@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 04-02-PLAN.md: auth and ACL pipeline wiring"
-last_updated: "2026-04-08T17:30:14.804Z"
-last_activity: 2026-04-08
+stopped_at: "Completed 04-03-PLAN.md: TLS/mTLS transport security"
+last_updated: "2026-04-09T07:39:50.524Z"
+last_activity: 2026-04-09
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 13
+  completed_plans: 14
   percent: 100
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 04 (security) — EXECUTING
-Plan: 3 of 3
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-04-08
+Last activity: 2026-04-09
 
 Progress: [████████████████████] 3/3 plans (100%)
 
@@ -66,6 +66,7 @@ Progress: [████████████████████] 3/3 pla
 | Phase 03-message-dispatch P03 | 7 | 2 tasks | 4 files |
 | Phase 04-security P01 | 7 | 1 tasks | 19 files |
 | Phase 04-security P02 | 14 | 2 tasks | 9 files |
+| Phase 04-security P03 | 30 | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,10 @@ Recent decisions affecting current work:
 - [Phase 04-security]: Auth check inserted BEFORE session registration in processConnect() (per D-04) — avoids registering sessions that will be immediately rejected
 - [Phase 04-security]: PUBLISH ACL denial sends QoS acks before dropping message — avoids protocol violation while enforcing ACL silently
 - [Phase 04-security]: defaultConnectOptions() in AbstractMqttIntegrationTest includes tbmq/tbmq credentials — required since auth is enforced by default
+- [Phase 04-security]: SmartLifecycle phase=1 for TLS bootstrap so it starts after TCP bootstrap (phase=0)
+- [Phase 04-security]: SslContext cached at @PostConstruct — avoids PEM re-parsing on every connection
+- [Phase 04-security]: pom.xml reuseForks=true: all test classes run in single JVM fork to prevent OOM from multiple Spring Boot contexts (RocksDB + Netty per context; separate forks cause SIGKILL exit code 143)
+- [Phase 04-security]: classpath: prefix in PEM paths enables test cert loading from src/test/resources without filesystem dependency
 
 ### Roadmap Evolution
 
@@ -125,6 +130,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T17:30:14.801Z
-Stopped at: Completed 04-02-PLAN.md: auth and ACL pipeline wiring
+Last session: 2026-04-09T07:39:50.521Z
+Stopped at: Completed 04-03-PLAN.md: TLS/mTLS transport security
 Resume file: None

@@ -9,7 +9,7 @@ TBMQ Lightweight is built bottom-up: infrastructure first, then protocol correct
 - [x] **Phase 1: Foundation** - Spring Boot app, RocksDB JNI, Netty TCP bootstrap, and multi-arch Docker image with Prometheus metrics (completed 2026-04-03)
 - [x] **Phase 2: Core Protocol (MQTT 3.1.1)** - Full MQTT 3.1.1 broker over TCP: QoS 0/1/2, retained messages, LWT, keep-alive, and client takeover (completed 2026-04-07)
 - [x] **Phase 3: Message Dispatch** - In-process publish routing via abstracted dispatch interface; wildcard subscription trie; non-blocking Netty handoff (completed 2026-04-08)
-- [ ] **Phase 4: Security** - TLS termination, username/password auth and X.509 mTLS backed by RocksDB, topic-level ACL, secure-by-default configuration
+- [x] **Phase 4: Security** - TLS termination, username/password auth and X.509 mTLS backed by RocksDB, topic-level ACL, secure-by-default configuration (completed 2026-04-09)
 - [ ] **Phase 5: WebSocket Transport** - MQTT over ws:// and wss://, correct subprotocol header handling for browser client compatibility
 - [ ] **Phase 6: MQTT 5.0** - MQTT 5.0 session expiry, user properties, reason codes, topic aliases, shared subscriptions, and protocol version negotiation
 - [ ] **Phase 7: Hardening and Docker Release** - Soak tests, memory budget validation, startup warnings, ARM64 validation on real hardware, Docker image release
@@ -74,11 +74,11 @@ Plans:
   3. A client is denied PUBLISH to a topic it has no ACL permission for, and denied SUBSCRIBE to a topic it has no read permission for; denials use correct MQTT return codes
   4. Anonymous connections are rejected by default; the broker accepts anonymous connections only when explicitly configured via environment variable
   5. After a broker restart, credentials and ACL rules loaded from the volume-mounted RocksDB directory are enforced without re-configuration
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 04-01-PLAN.md — Security service layer: credential/ACL models, RocksDB-backed services, auth service, default installer, Spring Security config
 - [x] 04-02-PLAN.md — Auth pipeline wiring: auth in ClientActor processConnect, ACL in processPublish/processSubscribe, integration tests
-- [ ] 04-03-PLAN.md — TLS listener + mTLS: PEM loading, Netty TLS bootstrap, X.509 auth, test PKI, integration tests
+- [x] 04-03-PLAN.md — TLS listener + mTLS: PEM loading, Netty TLS bootstrap, X.509 auth, test PKI, integration tests
 
 ### Phase 5: WebSocket Transport
 **Goal**: MQTT clients can connect over WebSocket (ws://) and secure WebSocket (wss://), and browser-based clients receive the correct `Sec-WebSocket-Protocol: mqtt` response header so the handshake is not rejected
@@ -121,7 +121,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 3/3 | Complete   | 2026-04-03 |
 | 2. Core Protocol (MQTT 3.1.1) | 5/5 | Complete   | 2026-04-07 |
 | 3. Message Dispatch | 3/3 | Complete   | 2026-04-08 |
-| 4. Security | 2/3 | In Progress|  |
+| 4. Security | 3/3 | Complete   | 2026-04-09 |
 | 5. WebSocket Transport | 0/TBD | Not started | - |
 | 6. MQTT 5.0 | 0/TBD | Not started | - |
 | 7. Hardening and Docker Release | 0/TBD | Not started | - |

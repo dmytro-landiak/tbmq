@@ -79,7 +79,7 @@ Each task was committed atomically:
 1. **Task 1: Copy trie data structures from TBMQ with lightweight adaptations** - `860e5781e` (feat)
 2. **Task 2: Unit tests for subscription trie and retained message trie** - `53de23847` (test)
 
-**Plan metadata:** TBD (docs: complete plan — added after summary)
+**Plan metadata:** `d82f8bea4` (docs: complete plan)
 
 _Note: Task 2 includes a Rule 1 auto-fix committed together with the test files_
 
@@ -125,6 +125,10 @@ None — no external service configuration required.
 - Both tries compile and all tests pass
 - Plan 02 can wire `ConcurrentMapSubscriptionTrie` and `ConcurrentMapRetainMsgTrie` as Spring beans and replace the Phase 2 exact-match `ConcurrentHashMap` in `DefaultSubscriptionRegistry` and `DefaultRetainedMsgService`
 - No blockers
+
+## Self-Check: PASSED
+
+All 9 expected files found on disk. All 3 commits verified in git log.
 
 ---
 *Phase: 03-message-dispatch*

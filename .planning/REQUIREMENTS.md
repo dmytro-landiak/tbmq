@@ -24,7 +24,7 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 ### Transport
 
 - [x] **TRAN-01**: Broker listens on configurable TCP port (default 1883) for plain MQTT connections
-- [ ] **TRAN-02**: Broker supports TLS-encrypted MQTT connections via mounted server certificate and key files
+- [x] **TRAN-02**: Broker supports TLS-encrypted MQTT connections via mounted server certificate and key files
 - [ ] **TRAN-03**: Broker accepts MQTT over WebSocket connections on configurable port (ws://)
 - [ ] **TRAN-04**: Broker accepts MQTT over secure WebSocket connections (wss://) with correct subprotocol header handling
 - [ ] **TRAN-05**: Broker echoes `Sec-WebSocket-Protocol: mqtt` header in WebSocket handshake response for browser client compatibility
@@ -32,7 +32,7 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 ### Authentication & Authorization
 
 - [x] **AUTH-01**: Broker authenticates clients via username/password credentials stored in RocksDB
-- [ ] **AUTH-02**: Broker authenticates clients via X.509 client certificates during mutual TLS handshake
+- [x] **AUTH-02**: Broker authenticates clients via X.509 client certificates during mutual TLS handshake
 - [x] **AUTH-03**: Broker enforces topic-level ACL rules (publish and subscribe permissions) stored in RocksDB
 - [x] **AUTH-04**: Broker requires authentication by default — anonymous access is disabled unless explicitly enabled via configuration
 - [x] **AUTH-05**: Credentials and ACL rules persist across broker restarts via RocksDB storage
@@ -113,11 +113,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFR-01 | Phase 3 | Complete |
 | INFR-04 | Phase 3 | Complete |
 | AUTH-01 | Phase 4 | Complete |
-| AUTH-02 | Phase 4 | Pending |
+| AUTH-02 | Phase 4 | Complete |
 | AUTH-03 | Phase 4 | Complete |
 | AUTH-04 | Phase 4 | Complete |
 | AUTH-05 | Phase 4 | Complete |
-| TRAN-02 | Phase 4 | Pending |
+| TRAN-02 | Phase 4 | Complete |
 | TRAN-03 | Phase 5 | Pending |
 | TRAN-04 | Phase 5 | Pending |
 | TRAN-05 | Phase 5 | Pending |
