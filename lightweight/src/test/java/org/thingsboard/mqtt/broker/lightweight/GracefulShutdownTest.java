@@ -29,6 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.config.name=tbmq-lightweight",
                 "tbmq.netty.port=0",
                 "tbmq.storage.rocksdb.path=${java.io.tmpdir}/tbmq-test-shutdown",
+                "tbmq.ws.port=0",
+                "tbmq.wss.enabled=false",
                 "management.server.port=0"
         }
 )

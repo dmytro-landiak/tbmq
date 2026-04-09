@@ -10,7 +10,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @TestPropertySource(properties = {
-        "tbmq.storage.rocksdb.path=${java.io.tmpdir}/tbmq-test-rocksdb-ctx"
+        "tbmq.storage.rocksdb.path=${java.io.tmpdir}/tbmq-test-rocksdb-ctx",
+        "tbmq.ws.port=0",
+        "tbmq.wss.enabled=false"
 })
 public class TbmqLightweightApplicationTest {
 

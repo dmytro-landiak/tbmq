@@ -43,6 +43,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "tbmq.netty.port=0",
         "tbmq.netty.max-connections=100",
         "tbmq.storage.rocksdb.path=${java.io.tmpdir}/tbmq-test-auth",
+        "tbmq.ws.port=0",
+        "tbmq.wss.enabled=false",
         "management.server.port=0"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

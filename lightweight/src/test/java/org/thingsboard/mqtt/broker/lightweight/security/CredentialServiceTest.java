@@ -33,7 +33,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @TestPropertySource(properties = {
         "spring.config.name=tbmq-lightweight",
-        "tbmq.storage.rocksdb.path=${java.io.tmpdir}/tbmq-test-credentials-${random.uuid}"
+        "tbmq.storage.rocksdb.path=${java.io.tmpdir}/tbmq-test-credentials-${random.uuid}",
+        "tbmq.ws.port=0",
+        "tbmq.wss.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class CredentialServiceTest {

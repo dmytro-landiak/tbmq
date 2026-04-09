@@ -22,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "tbmq.netty.port=0",
         "tbmq.netty.max-connections=3",
         "tbmq.storage.rocksdb.path=${java.io.tmpdir}/tbmq-test-netty",
+        "tbmq.ws.port=0",
+        "tbmq.wss.enabled=false",
         "management.server.port=0"
 })
 @DirtiesContext

@@ -83,6 +83,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "tbmq.tls.key-path=classpath:tls/server-key.pem",
         "tbmq.tls.client-auth=REQUIRED",
         "tbmq.tls.trust-cert-path=classpath:tls/ca.pem",
+        "tbmq.ws.port=0",
+        "tbmq.wss.enabled=false",
         "management.server.port=0"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
