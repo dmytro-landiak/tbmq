@@ -132,6 +132,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
+                    <!-- reuseForks=true: all test classes run in a single JVM fork to avoid OOM
+                         when multiple Spring Boot contexts (each with RocksDB + Netty) are running.
+                         Without this, each test class gets its own fork, and memory pressure from
+                         all these heavyweight contexts causes the JVM to be killed (exit code 143). -->
+                    <reuseForks>true</reuseForks>
                     <argLine>-Djava.library.path=${java.io.tmpdir} -Dio.netty.leakDetection.level=PARANOID</argLine>
                 </configuration>
             </plugin>
