@@ -91,7 +91,7 @@ Plans:
 **Plans:** 1/2 plans executed
 Plans:
 - [x] 05-01-PLAN.md — Abstract bootstrap + handler factory + refactor TCP/TLS + WS frame handlers + config
-- [ ] 05-02-PLAN.md — WS/WSS bootstraps + channel initializers + integration tests
+- [x] 05-02-PLAN.md — WS/WSS bootstraps + channel initializers + integration tests
 
 ### Phase 6: MQTT 5.0
 **Goal**: The broker accepts MQTT 5.0 clients and handles version-specific properties — session expiry interval, user properties, reason codes, topic aliases, and shared subscriptions — while simultaneously serving MQTT 3.1.1 clients on the same port

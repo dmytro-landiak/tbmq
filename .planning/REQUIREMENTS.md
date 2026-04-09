@@ -27,7 +27,7 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 - [x] **TRAN-02**: Broker supports TLS-encrypted MQTT connections via mounted server certificate and key files
 - [x] **TRAN-03**: Broker accepts MQTT over WebSocket connections on configurable port (ws://)
 - [x] **TRAN-04**: Broker accepts MQTT over secure WebSocket connections (wss://) with correct subprotocol header handling
-- [ ] **TRAN-05**: Broker echoes `Sec-WebSocket-Protocol: mqtt` header in WebSocket handshake response for browser client compatibility
+- [x] **TRAN-05**: Broker echoes `Sec-WebSocket-Protocol: mqtt` header in WebSocket handshake response for browser client compatibility
 
 ### Authentication & Authorization
 
@@ -120,7 +120,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRAN-02 | Phase 4 | Complete |
 | TRAN-03 | Phase 5 | Complete |
 | TRAN-04 | Phase 5 | Complete |
-| TRAN-05 | Phase 5 | Pending |
+| TRAN-05 | Phase 5 | Complete |
 | PROTO-08 | Phase 6 | Pending |
 | PROTO-09 | Phase 6 | Pending |
 | PROTO-10 | Phase 6 | Pending |
