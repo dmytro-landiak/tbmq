@@ -119,11 +119,18 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
     @Override
     public void stop() {
         running = false;
-        consumerPool.shutdownNow();
+        // Best-effort drain: stop accepting new work, give consumers time to empty queue
+        consumerPool.shutdown();
         try {
-            consumerPool.awaitTermination(5, TimeUnit.SECONDS);
+            if (!consumerPool.awaitTermination(5, TimeUnit.SECONDS)) {
+                log.warn("Dispatch consumer pool did not drain within 5s — {} messages may be lost",
+                        queue.size());
+                consumerPool.shutdownNow();
+                consumerPool.awaitTermination(2, TimeUnit.SECONDS);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            consumerPool.shutdownNow();
         }
         log.info("Message dispatcher stopped");
     }
