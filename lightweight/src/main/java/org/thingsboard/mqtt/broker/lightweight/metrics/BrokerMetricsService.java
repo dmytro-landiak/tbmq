@@ -34,10 +34,14 @@ public class BrokerMetricsService {
 
     @PostConstruct
     public void init() {
-        // Register total messages counter — will be incremented in Phase 2
-        // when MQTT PUBLISH handler is implemented
+        // Register total messages received counter — incremented in ClientActor.processPublish() and processPubRel()
         Counter.builder("mqtt.messages.received.total")
                 .description("Total MQTT messages received")
+                .register(meterRegistry);
+
+        // Register total messages delivered counter — incremented in ClientActor.processDeliver()
+        Counter.builder("mqtt.messages.delivered.total")
+                .description("Total MQTT messages delivered to subscribers")
                 .register(meterRegistry);
 
         // Register dropped messages counter — Micrometer deduplicates by name, so this ensures

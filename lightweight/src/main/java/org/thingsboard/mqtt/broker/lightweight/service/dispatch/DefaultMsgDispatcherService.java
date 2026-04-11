@@ -16,6 +16,7 @@
 package org.thingsboard.mqtt.broker.lightweight.service.dispatch;
 
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -88,6 +90,10 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
         queue = queueFactory.createQueue();
         droppedMsgsCounter = Counter.builder("mqtt.dispatch.dropped.total")
                 .description("Messages dropped due to full dispatch queue")
+                .register(meterRegistry);
+
+        Gauge.builder("mqtt.dispatch.queue.depth", queue, Queue::size)
+                .description("Current number of messages waiting in dispatch queue")
                 .register(meterRegistry);
 
         AtomicInteger threadNum = new AtomicInteger(0);

@@ -16,7 +16,10 @@
 package org.thingsboard.mqtt.broker.lightweight.security.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.handler.ssl.SslHandler;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,9 +57,23 @@ public class DefaultLightweightAuthService implements LightweightAuthService {
     private final ObjectMapper objectMapper;
     private final BCryptPasswordEncoder passwordEncoder;
     private final AuthorizationRuleService authorizationRuleService;
+    private final MeterRegistry meterRegistry;
 
     @Value("${tbmq.security.anonymous-enabled:false}")
     private boolean anonymousEnabled;
+
+    private Counter authSuccessCounter;
+    private Counter authFailureCounter;
+
+    @PostConstruct
+    void initMetrics() {
+        authSuccessCounter = Counter.builder("mqtt.auth.success.total")
+                .description("Total successful MQTT authentication attempts")
+                .register(meterRegistry);
+        authFailureCounter = Counter.builder("mqtt.auth.failure.total")
+                .description("Total failed MQTT authentication attempts")
+                .register(meterRegistry);
+    }
 
     @Override
     public AuthResult authenticate(String username, String password, SslHandler sslHandler) {
@@ -77,8 +94,10 @@ public class DefaultLightweightAuthService implements LightweightAuthService {
         // 3. No credentials provided — check anonymous setting
         if (anonymousEnabled) {
             log.debug("Anonymous connection allowed");
+            authSuccessCounter.increment();
             return AuthResult.success(Collections.emptyList());
         } else {
+            authFailureCounter.increment();
             return AuthResult.failure("Anonymous connections not allowed");
         }
     }
@@ -94,12 +113,14 @@ public class DefaultLightweightAuthService implements LightweightAuthService {
             String cn = extractCN(peerCert);
             if (cn == null) {
                 log.warn("Could not extract CN from peer certificate");
+                authFailureCounter.increment();
                 return AuthResult.failure("Could not extract CN from client certificate");
             }
 
             LightweightCredential credential = credentialService.findByCredentialId(cn);
             if (credential == null || credential.getType() != CredentialType.SSL) {
                 log.warn("No SSL credential found for CN: {}", cn);
+                authFailureCounter.increment();
                 return AuthResult.failure("No credentials found for certificate CN: " + cn);
             }
 
@@ -107,16 +128,19 @@ public class DefaultLightweightAuthService implements LightweightAuthService {
             List<AuthRulePatterns> patterns = authorizationRuleService.parseSslAuthorizationRule(sslCreds, cn);
             if (patterns.isEmpty()) {
                 log.warn("No ACL rules matched for CN: {}", cn);
+                authFailureCounter.increment();
                 return AuthResult.failure("No authorization rules matched for certificate CN: " + cn);
             }
 
             log.debug("SSL authentication succeeded for CN: {}", cn);
+            authSuccessCounter.increment();
             return AuthResult.success(patterns);
         } catch (SSLPeerUnverifiedException e) {
             // No peer certificate — mTLS not required, fall through to basic auth
             return null;
         } catch (Exception e) {
             log.warn("SSL authentication error", e);
+            authFailureCounter.increment();
             return AuthResult.failure("SSL authentication error: " + e.getMessage());
         }
     }
@@ -125,6 +149,7 @@ public class DefaultLightweightAuthService implements LightweightAuthService {
         LightweightCredential credential = credentialService.findByCredentialId(username);
         if (credential == null || credential.getType() != CredentialType.BASIC) {
             log.warn("No basic credentials found for username: {}", username);
+            authFailureCounter.increment();
             return AuthResult.failure("Bad username or password");
         }
 
@@ -133,15 +158,18 @@ public class DefaultLightweightAuthService implements LightweightAuthService {
             if (basicCreds.getPassword() != null) {
                 if (password == null || !passwordEncoder.matches(password, basicCreds.getPassword())) {
                     log.warn("Password mismatch for username: {}", username);
+                    authFailureCounter.increment();
                     return AuthResult.failure("Bad username or password");
                 }
             }
 
             List<AuthRulePatterns> patterns = authorizationRuleService.parseAuthorizationRule(basicCreds);
             log.debug("Basic authentication succeeded for username: {}", username);
+            authSuccessCounter.increment();
             return AuthResult.success(patterns);
         } catch (Exception e) {
             log.error("Failed to process basic credentials for username: {}", username, e);
+            authFailureCounter.increment();
             return AuthResult.failure("Bad username or password");
         }
     }

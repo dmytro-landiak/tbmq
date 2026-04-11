@@ -146,6 +146,7 @@
                          all these heavyweight contexts causes the JVM to be killed (exit code 143). -->
                     <reuseForks>true</reuseForks>
                     <argLine>-Djava.library.path=${java.io.tmpdir} -Dio.netty.leakDetection.level=PARANOID</argLine>
+                    <excludedGroups>soak</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>

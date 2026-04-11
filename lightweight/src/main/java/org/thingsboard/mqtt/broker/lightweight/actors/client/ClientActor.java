@@ -526,6 +526,9 @@ public class ClientActor extends AbstractTbActor {
             }
         }
 
+        // Increment received counter (D-01/D-02) — covers QoS 0 and QoS 1 paths
+        meterRegistry.counter("mqtt.messages.received.total").increment();
+
         // Dispatch to subscribers via queue (D-01) — QoS ack sent above; dispatch is non-blocking
         msgDispatcherService.dispatch(PublishMsg.builder()
                 .topicName(topicName).qos(publishQos).payload(payload).retain(false).dup(false).packetId(0)
@@ -566,6 +569,9 @@ public class ClientActor extends AbstractTbActor {
                                     .build());
                 }
             }
+            // Increment received counter for QoS 2 (counted at PUBREL, not PUBLISH)
+            meterRegistry.counter("mqtt.messages.received.total").increment();
+
             // Dispatch to subscribers via queue (D-01) — exactly once delivery
             msgDispatcherService.dispatch(PublishMsg.builder()
                     .topicName(publishMsg.getTopicName())
@@ -652,6 +658,9 @@ public class ClientActor extends AbstractTbActor {
             sessionCtx.getChannel().writeAndFlush(
                     messageGenerator.createPublish(topicName, 2, payload, retain, false, pktId, deliverProps));
         }
+
+        // Increment delivered counter — covers all QoS paths (0, 1, 2)
+        meterRegistry.counter("mqtt.messages.delivered.total").increment();
     }
 
     private void processPing() {
