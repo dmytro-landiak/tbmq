@@ -10,7 +10,7 @@ TBMQ Lightweight is built bottom-up: infrastructure first, then protocol correct
 - [x] **Phase 2: Core Protocol (MQTT 3.1.1)** - Full MQTT 3.1.1 broker over TCP: QoS 0/1/2, retained messages, LWT, keep-alive, and client takeover (completed 2026-04-07)
 - [x] **Phase 3: Message Dispatch** - In-process publish routing via abstracted dispatch interface; wildcard subscription trie; non-blocking Netty handoff (completed 2026-04-08)
 - [x] **Phase 4: Security** - TLS termination, username/password auth and X.509 mTLS backed by RocksDB, topic-level ACL, secure-by-default configuration (completed 2026-04-09)
-- [ ] **Phase 5: WebSocket Transport** - MQTT over ws:// and wss://, correct subprotocol header handling for browser client compatibility
+- [x] **Phase 5: WebSocket Transport** - MQTT over ws:// and wss://, correct subprotocol header handling for browser client compatibility (completed 2026-04-09)
 - [x] **Phase 6: MQTT 5.0** - MQTT 5.0 session expiry, user properties, reason codes, topic aliases, shared subscriptions, and protocol version negotiation (completed 2026-04-11)
 - [ ] **Phase 7: Hardening and Docker Release** - Soak tests, memory budget validation, startup warnings, ARM64 validation on real hardware, Docker image release
 
@@ -132,6 +132,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 2. Core Protocol (MQTT 3.1.1) | 5/5 | Complete   | 2026-04-07 |
 | 3. Message Dispatch | 3/3 | Complete   | 2026-04-08 |
 | 4. Security | 3/3 | Complete   | 2026-04-09 |
-| 5. WebSocket Transport | 2/2 | Complete |  |
+| 5. WebSocket Transport | 2/2 | Complete | 2026-04-09 |
 | 6. MQTT 5.0 | 3/3 | Complete | 2026-04-11 |
 | 7. Hardening and Docker Release | 0/2 | In Progress | - |
