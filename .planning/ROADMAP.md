@@ -11,7 +11,7 @@ TBMQ Lightweight is built bottom-up: infrastructure first, then protocol correct
 - [x] **Phase 3: Message Dispatch** - In-process publish routing via abstracted dispatch interface; wildcard subscription trie; non-blocking Netty handoff (completed 2026-04-08)
 - [x] **Phase 4: Security** - TLS termination, username/password auth and X.509 mTLS backed by RocksDB, topic-level ACL, secure-by-default configuration (completed 2026-04-09)
 - [ ] **Phase 5: WebSocket Transport** - MQTT over ws:// and wss://, correct subprotocol header handling for browser client compatibility
-- [ ] **Phase 6: MQTT 5.0** - MQTT 5.0 session expiry, user properties, reason codes, topic aliases, shared subscriptions, and protocol version negotiation
+- [x] **Phase 6: MQTT 5.0** - MQTT 5.0 session expiry, user properties, reason codes, topic aliases, shared subscriptions, and protocol version negotiation (completed 2026-04-11)
 - [ ] **Phase 7: Hardening and Docker Release** - Soak tests, memory budget validation, startup warnings, ARM64 validation on real hardware, Docker image release
 
 ## Phase Details
@@ -101,7 +101,7 @@ Plans:
   1. An MQTT 5.0 client and an MQTT 3.1.1 client can both be connected simultaneously; each receives protocol-version-appropriate responses (e.g., CONNACK with reason code for 5.0, return code for 3.1.1)
   2. A 5.0 client that sends session expiry interval, user properties, and topic aliases has those properties correctly handled — session expiry enforced, user properties forwarded, topic aliases resolved per-connection
   3. Shared subscription groups (`$share/group/topic`) distribute messages across active subscriber members; a message is delivered to exactly one member of the group per publish
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 06-01-PLAN.md — MQTT 5.0 utility classes, domain model extensions, MqttMessageGenerator 5.0 overloads, YAML config
 - [x] 06-02-PLAN.md — Version negotiation wiring, CONNACK properties, reason codes, topic aliases, shared subscription routing, message expiry
@@ -116,7 +116,10 @@ Plans:
   2. A 24-hour soak test with simulated production load shows zero Netty ByteBuf leak warnings (`PARANOID` detection) and stable container RSS (no unbounded growth)
   3. The Docker image runs correctly on a real ARM64 device (not QEMU emulation); the broker starts, accepts connections, and RocksDB persists data
   4. The broker logs a clear startup warning when TLS is not configured, when `/data/rocksdb` is not volume-mounted, and when retained messages are in-memory only
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 07-01-PLAN.md — Prometheus metrics completeness + startup warning service + integration tests
+- [ ] 07-02-PLAN.md — Soak test + ARM64 validation script + human verification checkpoint
 
 ## Progress
 
@@ -130,5 +133,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 3. Message Dispatch | 3/3 | Complete   | 2026-04-08 |
 | 4. Security | 3/3 | Complete   | 2026-04-09 |
 | 5. WebSocket Transport | 2/2 | Complete |  |
-| 6. MQTT 5.0 | 0/3 | In Progress | - |
-| 7. Hardening and Docker Release | 0/TBD | Not started | - |
+| 6. MQTT 5.0 | 3/3 | Complete | 2026-04-11 |
+| 7. Hardening and Docker Release | 0/2 | In Progress | - |
