@@ -18,6 +18,7 @@ package org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.thingsboard.mqtt.broker.lightweight.util.MqttPropertiesUtil;
 
 import java.util.List;
 import java.util.Optional;
@@ -58,7 +59,17 @@ public class DefaultRetainedMsgService implements RetainedMsgService {
 
     @Override
     public List<RetainedMsg> getRetainedMessages(String topicFilter) {
-        return retainMsgTrie.get(topicFilter);
+        List<RetainedMsg> results = retainMsgTrie.get(topicFilter);
+        // Filter expired retained messages and remove them from the trie (lazy cleanup)
+        results.removeIf(msg -> {
+            if (MqttPropertiesUtil.isRetainedMsgExpired(msg.getCreatedTime(), msg.getProperties())) {
+                retainMsgTrie.delete(msg.getTopicName());
+                log.debug("Removed expired retained message for topic '{}'", msg.getTopicName());
+                return true;
+            }
+            return false;
+        });
+        return results;
     }
 
 }

@@ -21,6 +21,7 @@ import org.thingsboard.mqtt.broker.lightweight.actors.TbActor;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorCreator;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorId;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbTypeActorId;
+import org.thingsboard.mqtt.broker.lightweight.config.Mqtt5Configuration;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
 import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
@@ -52,6 +53,7 @@ public class ClientActorCreator implements TbActorCreator {
     private final LightweightAuthService authService;
     private final AuthorizationRuleService authorizationRuleService;
     private final MeterRegistry meterRegistry;
+    private final Mqtt5Configuration mqtt5Config;
 
     @Override
     public TbActorId createActorId() {
@@ -62,7 +64,7 @@ public class ClientActorCreator implements TbActorCreator {
     public TbActor createActor() {
         return new ClientActor(sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
                 retainedMsgService, lastWillService, msgDispatcherService,
-                authService, authorizationRuleService, meterRegistry);
+                authService, authorizationRuleService, meterRegistry, mqtt5Config);
     }
 
 }

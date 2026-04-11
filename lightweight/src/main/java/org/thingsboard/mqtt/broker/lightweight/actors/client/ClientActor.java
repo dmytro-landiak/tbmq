@@ -18,7 +18,11 @@ package org.thingsboard.mqtt.broker.lightweight.actors.client;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
+import io.netty.handler.codec.mqtt.MqttMessageIdAndPropertiesVariableHeader;
+import io.netty.handler.codec.mqtt.MqttProperties;
+import io.netty.handler.codec.mqtt.MqttReasonCodes;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.netty.handler.codec.mqtt.MqttVersion;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +46,8 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttUnsubscribe
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.PingMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
+import org.thingsboard.mqtt.broker.lightweight.common.BrokerConstants;
+import org.thingsboard.mqtt.broker.lightweight.config.Mqtt5Configuration;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
 import org.thingsboard.mqtt.broker.lightweight.security.auth.AuthResult;
@@ -59,6 +65,8 @@ import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionCtx;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.DisconnectReasonType;
 import org.thingsboard.mqtt.broker.lightweight.session.SessionState;
+import org.thingsboard.mqtt.broker.lightweight.util.MqttPropertiesUtil;
+import org.thingsboard.mqtt.broker.lightweight.util.MqttReasonCodeResolver;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -98,6 +106,7 @@ public class ClientActor extends AbstractTbActor {
     private final LightweightAuthService authService;
     private final AuthorizationRuleService authorizationRuleService;
     private final MeterRegistry meterRegistry;
+    private final Mqtt5Configuration mqtt5Config;
 
     /** Session context set on SESSION_INIT_MSG. */
     private ClientSessionCtx sessionCtx;
@@ -165,7 +174,7 @@ public class ClientActor extends AbstractTbActor {
         if (!authResult.isSuccess()) {
             log.warn("[{}] Authentication failed: {}", clientId, authResult.getFailureReason());
             sessionCtx.getChannel().writeAndFlush(
-                    messageGenerator.createConnAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED, false));
+                    messageGenerator.createConnAck(MqttReasonCodeResolver.connectionRefusedNotAuthorized(sessionCtx), false));
             sessionCtx.getChannel().close();
             return;
         }
@@ -206,8 +215,24 @@ public class ClientActor extends AbstractTbActor {
         }
 
         // Send CONNACK — sessionPresent always false in R1 (clean session only)
-        sessionCtx.getChannel().writeAndFlush(
-                messageGenerator.createConnAck(MqttConnectReturnCode.CONNECTION_ACCEPTED, false));
+        if (sessionCtx.getMqttVersion() == MqttVersion.MQTT_5) {
+            MqttProperties connAckProps = new MqttProperties();
+            // D-13: Advertise Topic Alias Maximum
+            MqttPropertiesUtil.addMaxTopicAliasToProps(connAckProps, mqtt5Config.getTopicAliasMax());
+            // D-04: Advertise Receive Maximum
+            MqttPropertiesUtil.addReceiveMaxToProps(connAckProps, sessionCtx.getReceiveMaximum());
+            // D-02: Include Session Expiry Interval = 0 only when client requested non-zero
+            MqttProperties connectProps = connectMessage.variableHeader().properties();
+            Integer clientSessionExpiry = MqttPropertiesUtil.getSessionExpiryIntervalFromConnect(connectProps);
+            if (clientSessionExpiry != null && clientSessionExpiry > 0) {
+                MqttPropertiesUtil.addSessionExpiryIntervalToProps(connAckProps, 0);
+            }
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createConnAck(MqttConnectReturnCode.CONNECTION_ACCEPTED, false, connAckProps));
+        } else {
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createConnAck(MqttConnectReturnCode.CONNECTION_ACCEPTED, false));
+        }
 
         // Configure keep-alive idle timeout: replace the placeholder IdleStateHandler
         final int keepAliveFinal = keepAliveSeconds;
@@ -305,46 +330,85 @@ public class ClientActor extends AbstractTbActor {
         List<MqttTopicSubscription> topicSubs = msg.getMqttSubscribeMessage().payload().topicSubscriptions();
         List<Integer> grantedQosList = new ArrayList<>();
 
+        // Extract subscription identifier from SUBSCRIBE properties (MQTT 5.0 only, per D-06)
+        int subscriptionId = 0;
+        if (sessionCtx.getMqttVersion() == MqttVersion.MQTT_5
+                && msg.getMqttSubscribeMessage().variableHeader() instanceof MqttMessageIdAndPropertiesVariableHeader propsHeader) {
+            subscriptionId = MqttPropertiesUtil.getSubscriptionId(propsHeader.properties());
+        }
+
         for (MqttTopicSubscription topicSub : topicSubs) {
             String topicFilter = topicSub.topicName();
             int requestedQos = topicSub.qualityOfService().value();
 
-            // ACL check for subscribe (per D-11)
-            if (!authorizationRuleService.isSubAuthorized(topicFilter, sessionCtx.getAuthRulePatterns())) {
+            // Shared subscription parsing (per D-10, D-11) — works for both 3.1.1 and 5.0 clients
+            String actualTopicFilter = topicFilter;
+            String shareName = null;
+            if (topicFilter.startsWith(BrokerConstants.SHARED_SUBSCRIPTION_PREFIX)) {
+                int secondSlash = topicFilter.indexOf('/', BrokerConstants.SHARE_NAME_IDX);
+                if (secondSlash < 0 || secondSlash == BrokerConstants.SHARE_NAME_IDX) {
+                    // Malformed shared subscription — no group name or no topic after group
+                    log.warn("[{}] Malformed shared subscription: '{}'", clientId, topicFilter);
+                    grantedQosList.add(sessionCtx.getMqttVersion() == MqttVersion.MQTT_5
+                            ? MqttReasonCodes.SubAck.UNSPECIFIED_ERROR.byteValue() & 0xFF : 0x80);
+                    continue;
+                }
+                shareName = topicFilter.substring(BrokerConstants.SHARE_NAME_IDX, secondSlash);
+                actualTopicFilter = topicFilter.substring(secondSlash + 1);
+            }
+
+            // ACL check for subscribe (per D-11) — check with the actual topic filter (after stripping $share prefix)
+            if (!authorizationRuleService.isSubAuthorized(actualTopicFilter, sessionCtx.getAuthRulePatterns())) {
                 log.debug("[{}] SUBSCRIBE denied to '{}' (ACL)", clientId, topicFilter);
                 meterRegistry.counter("mqtt.auth.denied.total", "type", "subscribe").increment();
-                grantedQosList.add(0x80); // Failure return code per MQTT 3.1.1 spec 3.9.3
+                grantedQosList.add(sessionCtx.getMqttVersion() == MqttVersion.MQTT_5
+                        ? MqttReasonCodes.SubAck.NOT_AUTHORIZED.byteValue() & 0xFF
+                        : 0x80);
                 continue; // Skip subscription registration and retained message delivery
             }
 
             int grantedQos = Math.min(requestedQos, 2); // broker supports up to QoS 2
             grantedQosList.add(grantedQos);
 
-            Subscription subscription = new Subscription(clientId, grantedQos, sessionCtx, null, 0);
-            subscriptionRegistry.subscribe(topicFilter, subscription);
-            log.debug("[{}] Subscribed to '{}' with QoS {}", clientId, topicFilter, grantedQos);
+            // Register under actualTopicFilter (with $share/group/ prefix stripped) — per Pitfall 3
+            Subscription subscription = new Subscription(clientId, grantedQos, sessionCtx, shareName, subscriptionId);
+            subscriptionRegistry.subscribe(actualTopicFilter, subscription);
+            log.debug("[{}] Subscribed to '{}' with QoS {} (shareName={}, subId={})",
+                    clientId, topicFilter, grantedQos, shareName, subscriptionId);
 
-            // Deliver retained messages matching this filter (including wildcards via trie)
-            final int finalGrantedQos = grantedQos;
-            List<RetainedMsg> retainedMsgs = retainedMsgService.getRetainedMessages(topicFilter);
-            for (RetainedMsg retained : retainedMsgs) {
-                int deliveryQos = Math.min(retained.getQos(), finalGrantedQos);
-                log.debug("[{}] Delivering retained message for topic '{}' (qos={})", clientId, retained.getTopicName(), deliveryQos);
-                if (deliveryQos == 0) {
-                    sessionCtx.getChannel().writeAndFlush(
-                            messageGenerator.createPublish(retained.getTopicName(), 0, retained.getPayload(), true, false, 0));
-                } else if (deliveryQos == 1) {
-                    int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
-                    sessionCtx.getOutboundQos1().put(pktId, PublishMsg.builder()
-                            .topicName(retained.getTopicName()).qos(1).payload(retained.getPayload()).retain(true).dup(false).packetId(pktId).build());
-                    sessionCtx.getChannel().writeAndFlush(
-                            messageGenerator.createPublish(retained.getTopicName(), 1, retained.getPayload(), true, false, pktId));
-                } else {
-                    int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
-                    sessionCtx.getOutboundQos2().put(pktId, PublishMsg.builder()
-                            .topicName(retained.getTopicName()).qos(2).payload(retained.getPayload()).retain(true).dup(false).packetId(pktId).build());
-                    sessionCtx.getChannel().writeAndFlush(
-                            messageGenerator.createPublish(retained.getTopicName(), 2, retained.getPayload(), true, false, pktId));
+            // Deliver retained messages — only for non-shared subscriptions (per MQTT 5.0 spec)
+            if (shareName == null) {
+                final int finalGrantedQos = grantedQos;
+                List<RetainedMsg> retainedMsgs = retainedMsgService.getRetainedMessages(actualTopicFilter);
+                for (RetainedMsg retained : retainedMsgs) {
+                    // Check message expiry (per D-04)
+                    if (MqttPropertiesUtil.isRetainedMsgExpired(retained.getCreatedTime(), retained.getProperties())) {
+                        retainedMsgService.clearRetainedMessage(retained.getTopicName());
+                        continue; // skip expired retained message
+                    }
+                    int deliveryQos = Math.min(retained.getQos(), finalGrantedQos);
+                    log.debug("[{}] Delivering retained message for topic '{}' (qos={})", clientId, retained.getTopicName(), deliveryQos);
+                    MqttProperties retainedProps = sessionCtx.getMqttVersion() == MqttVersion.MQTT_5
+                            ? MqttPropertiesUtil.copyPublishPropertiesToDeliver(retained.getProperties())
+                            : MqttProperties.NO_PROPERTIES;
+                    if (deliveryQos == 0) {
+                        sessionCtx.getChannel().writeAndFlush(
+                                messageGenerator.createPublish(retained.getTopicName(), 0, retained.getPayload(), true, false, 0, retainedProps));
+                    } else if (deliveryQos == 1) {
+                        int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
+                        sessionCtx.getOutboundQos1().put(pktId, PublishMsg.builder()
+                                .topicName(retained.getTopicName()).qos(1).payload(retained.getPayload()).retain(true).dup(false).packetId(pktId)
+                                .properties(retained.getProperties()).build());
+                        sessionCtx.getChannel().writeAndFlush(
+                                messageGenerator.createPublish(retained.getTopicName(), 1, retained.getPayload(), true, false, pktId, retainedProps));
+                    } else {
+                        int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
+                        sessionCtx.getOutboundQos2().put(pktId, PublishMsg.builder()
+                                .topicName(retained.getTopicName()).qos(2).payload(retained.getPayload()).retain(true).dup(false).packetId(pktId)
+                                .properties(retained.getProperties()).build());
+                        sessionCtx.getChannel().writeAndFlush(
+                                messageGenerator.createPublish(retained.getTopicName(), 2, retained.getPayload(), true, false, pktId, retainedProps));
+                    }
                 }
             }
         }
@@ -358,7 +422,14 @@ public class ClientActor extends AbstractTbActor {
         List<String> topics = msg.getMqttUnsubscribeMessage().payload().topics();
 
         for (String topic : topics) {
-            subscriptionRegistry.unsubscribe(topic, clientId);
+            String actualTopic = topic;
+            if (topic.startsWith(BrokerConstants.SHARED_SUBSCRIPTION_PREFIX)) {
+                int secondSlash = topic.indexOf('/', BrokerConstants.SHARE_NAME_IDX);
+                if (secondSlash > BrokerConstants.SHARE_NAME_IDX) {
+                    actualTopic = topic.substring(secondSlash + 1);
+                }
+            }
+            subscriptionRegistry.unsubscribe(actualTopic, clientId);
             log.debug("[{}] Unsubscribed from '{}'", clientId, topic);
         }
 
@@ -379,9 +450,11 @@ public class ClientActor extends AbstractTbActor {
             meterRegistry.counter("mqtt.auth.denied.total", "type", "publish").increment();
             // Still send QoS acks to avoid protocol violation, but drop the message
             if (publishQos == 1) {
-                sessionCtx.getChannel().writeAndFlush(messageGenerator.createPubAck(inboundPacketId));
+                sessionCtx.getChannel().writeAndFlush(
+                        messageGenerator.createPubAck(inboundPacketId, MqttReasonCodeResolver.pubAckNotAuthorized(sessionCtx)));
             } else if (publishQos == 2) {
-                sessionCtx.getChannel().writeAndFlush(messageGenerator.createPubRec(inboundPacketId));
+                sessionCtx.getChannel().writeAndFlush(
+                        messageGenerator.createPubRec(inboundPacketId, MqttReasonCodeResolver.pubRecNotAuthorized(sessionCtx)));
                 // Store a sentinel so PUBREL completes the flow without delivery
                 sessionCtx.getInboundQos2().put(inboundPacketId, "ACL_DENIED");
             }
@@ -390,12 +463,14 @@ public class ClientActor extends AbstractTbActor {
 
         if (publishQos == 1) {
             // QoS 1: Send PUBACK to publisher, then deliver
-            sessionCtx.getChannel().writeAndFlush(messageGenerator.createPubAck(inboundPacketId));
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createPubAck(inboundPacketId, MqttReasonCodeResolver.pubAckSuccess(sessionCtx)));
         } else if (publishQos == 2) {
             // QoS 2 deduplication check (Pitfall 2 from RESEARCH)
             if (sessionCtx.getInboundQos2().containsKey(inboundPacketId)) {
                 // DUP retransmit: resend PUBREC, do NOT deliver again
-                sessionCtx.getChannel().writeAndFlush(messageGenerator.createPubRec(inboundPacketId));
+                sessionCtx.getChannel().writeAndFlush(
+                        messageGenerator.createPubRec(inboundPacketId, MqttReasonCodeResolver.pubRecSuccess(sessionCtx)));
                 return;
             }
             // Store the PublishMsg so it can be delivered when PUBREL arrives
@@ -406,9 +481,11 @@ public class ClientActor extends AbstractTbActor {
                     .retain(retain)
                     .dup(false)
                     .packetId(inboundPacketId)
+                    .properties(msg.getProperties())
                     .build();
             sessionCtx.getInboundQos2().put(inboundPacketId, publishMsg);
-            sessionCtx.getChannel().writeAndFlush(messageGenerator.createPubRec(inboundPacketId));
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createPubRec(inboundPacketId, MqttReasonCodeResolver.pubRecSuccess(sessionCtx)));
             // Do NOT deliver yet — wait for PUBREL
             return;
         }
@@ -421,13 +498,19 @@ public class ClientActor extends AbstractTbActor {
             } else {
                 // Non-empty payload with retain=1 SETS the retained message
                 retainedMsgService.setRetainedMessage(topicName,
-                        RetainedMsg.builder().topicName(topicName).qos(publishQos).payload(payload).build());
+                        RetainedMsg.builder()
+                                .topicName(topicName).qos(publishQos).payload(payload)
+                                .createdTime(System.currentTimeMillis())
+                                .properties(msg.getProperties())
+                                .build());
             }
         }
 
         // Dispatch to subscribers via queue (D-01) — QoS ack sent above; dispatch is non-blocking
         msgDispatcherService.dispatch(PublishMsg.builder()
-                .topicName(topicName).qos(publishQos).payload(payload).retain(false).dup(false).packetId(0).build());
+                .topicName(topicName).qos(publishQos).payload(payload).retain(false).dup(false).packetId(0)
+                .properties(msg.getProperties())
+                .build());
     }
 
     private void processPubAck(MqttPubAckMsg msg) {
@@ -456,7 +539,11 @@ public class ClientActor extends AbstractTbActor {
                     retainedMsgService.clearRetainedMessage(publishMsg.getTopicName());
                 } else {
                     retainedMsgService.setRetainedMessage(publishMsg.getTopicName(),
-                            RetainedMsg.builder().topicName(publishMsg.getTopicName()).qos(2).payload(publishMsg.getPayload()).build());
+                            RetainedMsg.builder()
+                                    .topicName(publishMsg.getTopicName()).qos(2).payload(publishMsg.getPayload())
+                                    .createdTime(System.currentTimeMillis())
+                                    .properties(publishMsg.getProperties())
+                                    .build());
                 }
             }
             // Dispatch to subscribers via queue (D-01) — exactly once delivery
@@ -467,6 +554,7 @@ public class ClientActor extends AbstractTbActor {
                     .retain(false)
                     .dup(false)
                     .packetId(0)
+                    .properties(publishMsg.getProperties())
                     .build());
         } else {
             log.warn("[{}] PUBREL received for unknown packetId={}", clientId, packetId);
@@ -496,22 +584,53 @@ public class ClientActor extends AbstractTbActor {
         String topicName = publishMsg.getTopicName();
         byte[] payload = publishMsg.getPayload();
         boolean retain = publishMsg.isRetain();
+        MqttProperties deliverProps = MqttProperties.NO_PROPERTIES;
+
+        if (sessionCtx.getMqttVersion() == MqttVersion.MQTT_5) {
+            // Build outbound properties
+            deliverProps = MqttPropertiesUtil.copyPublishPropertiesToDeliver(publishMsg.getProperties());
+
+            // D-06: Add subscription identifier if present
+            int subId = msg.getSubscriptionId();
+            if (subId > 0) {
+                MqttPropertiesUtil.addSubscriptionIdToProps(deliverProps, subId);
+            }
+
+            // D-12/D-14: Server-side topic alias allocation
+            int alias = sessionCtx.getTopicAliasCtx().getTopicAliasForPublish(
+                    topicName, mqtt5Config.getMinTopicAliasLength());
+            if (alias > 0) {
+                MqttPropertiesUtil.addTopicAliasToProps(deliverProps, alias);
+            }
+
+            // D-04: Receive Maximum flow control — check before sending QoS 1/2
+            if (deliveryQos > 0) {
+                int inFlight = sessionCtx.getOutboundQos1().size() + sessionCtx.getOutboundQos2().size();
+                if (inFlight >= sessionCtx.getReceiveMaximum()) {
+                    log.debug("[{}] Receive Maximum ({}) reached, dropping QoS {} message for '{}'",
+                            clientId, sessionCtx.getReceiveMaximum(), deliveryQos, topicName);
+                    return; // Drop message — client cannot handle more in-flight
+                }
+            }
+        }
 
         if (deliveryQos == 0) {
             sessionCtx.getChannel().writeAndFlush(
-                    messageGenerator.createPublish(topicName, 0, payload, retain, false, 0));
+                    messageGenerator.createPublish(topicName, 0, payload, retain, false, 0, deliverProps));
         } else if (deliveryQos == 1) {
             int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
             sessionCtx.getOutboundQos1().put(pktId, PublishMsg.builder()
-                    .topicName(topicName).qos(1).payload(payload).retain(retain).dup(false).packetId(pktId).build());
+                    .topicName(topicName).qos(1).payload(payload).retain(retain).dup(false).packetId(pktId)
+                    .properties(publishMsg.getProperties()).build());
             sessionCtx.getChannel().writeAndFlush(
-                    messageGenerator.createPublish(topicName, 1, payload, retain, false, pktId));
+                    messageGenerator.createPublish(topicName, 1, payload, retain, false, pktId, deliverProps));
         } else {
             int pktId = sessionCtx.getPacketIdAllocator().nextPacketId();
             sessionCtx.getOutboundQos2().put(pktId, PublishMsg.builder()
-                    .topicName(topicName).qos(2).payload(payload).retain(retain).dup(false).packetId(pktId).build());
+                    .topicName(topicName).qos(2).payload(payload).retain(retain).dup(false).packetId(pktId)
+                    .properties(publishMsg.getProperties()).build());
             sessionCtx.getChannel().writeAndFlush(
-                    messageGenerator.createPublish(topicName, 2, payload, retain, false, pktId));
+                    messageGenerator.createPublish(topicName, 2, payload, retain, false, pktId, deliverProps));
         }
     }
 

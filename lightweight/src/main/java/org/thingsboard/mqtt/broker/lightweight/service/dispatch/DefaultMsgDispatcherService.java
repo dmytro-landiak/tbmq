@@ -31,8 +31,12 @@ import org.thingsboard.mqtt.broker.lightweight.service.subscription.ValueWithTop
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.DeliverMsg;
 import org.thingsboard.mqtt.broker.lightweight.session.SessionState;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -67,6 +71,9 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
     private ExecutorService consumerPool;
     private Counter droppedMsgsCounter;
     private volatile boolean running = false;
+
+    /** Per-shared-group round-robin counters. Key: shareName, Value: monotonic counter. */
+    private final ConcurrentHashMap<String, AtomicInteger> sharedGroupCounters = new ConcurrentHashMap<>();
 
     @Override
     public void dispatch(PublishMsg msg) {
@@ -136,28 +143,66 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
 
     private void deliverToSubscribers(PublishMsg msg) {
         List<ValueWithTopicFilter<Subscription>> matches = subscriptionRegistry.getSubscriptions(msg.getTopicName());
+
+        // Separate shared from non-shared subscriptions (per D-10)
+        Map<String, List<Subscription>> sharedGroups = new HashMap<>();
+        List<Subscription> nonShared = new ArrayList<>();
         for (ValueWithTopicFilter<Subscription> match : matches) {
             Subscription sub = match.getValue();
             if (sub.getSessionCtx().getState() != SessionState.CONNECTED) {
                 continue;
             }
-            int deliveryQos = Math.min(msg.getQos(), sub.getQos());
-            PublishMsg deliveryMsg = PublishMsg.builder()
-                    .topicName(msg.getTopicName())
-                    .qos(deliveryQos)
-                    .payload(msg.getPayload())
-                    .retain(false)
-                    .dup(false)
-                    .packetId(0)
-                    .build();
-            DeliverMsg deliverMsg = new DeliverMsg(deliveryMsg, deliveryQos, 0);
-            try {
-                actorSystem.tell(new TbTypeActorId("client", sub.getClientId()), deliverMsg);
-            } catch (Exception e) {
-                // Actor may be destroyed during disconnect race — log at TRACE and continue
-                log.trace("[{}] Failed to deliver message — actor may have been destroyed", sub.getClientId(), e);
+            if (sub.getShareName() != null) {
+                sharedGroups.computeIfAbsent(sub.getShareName(), k -> new ArrayList<>()).add(sub);
+            } else {
+                nonShared.add(sub);
             }
         }
+
+        // Deliver to all non-shared subscribers
+        for (Subscription sub : nonShared) {
+            deliverToSubscriber(msg, sub);
+        }
+
+        // For each shared group, pick one via round-robin (per D-09)
+        for (Map.Entry<String, List<Subscription>> entry : sharedGroups.entrySet()) {
+            Subscription picked = pickFromSharedGroup(entry.getKey(), entry.getValue());
+            if (picked != null) {
+                deliverToSubscriber(msg, picked);
+            }
+        }
+    }
+
+    private void deliverToSubscriber(PublishMsg msg, Subscription sub) {
+        int deliveryQos = Math.min(msg.getQos(), sub.getQos());
+        PublishMsg deliveryMsg = PublishMsg.builder()
+                .topicName(msg.getTopicName())
+                .qos(deliveryQos)
+                .payload(msg.getPayload())
+                .retain(false)
+                .dup(false)
+                .packetId(0)
+                .properties(msg.getProperties())
+                .build();
+        DeliverMsg deliverMsg = new DeliverMsg(deliveryMsg, deliveryQos, sub.getSubscriptionId());
+        try {
+            actorSystem.tell(new TbTypeActorId("client", sub.getClientId()), deliverMsg);
+        } catch (Exception e) {
+            log.trace("[{}] Failed to deliver message — actor may have been destroyed", sub.getClientId(), e);
+        }
+    }
+
+    private Subscription pickFromSharedGroup(String groupKey, List<Subscription> members) {
+        AtomicInteger counter = sharedGroupCounters.computeIfAbsent(groupKey, k -> new AtomicInteger(0));
+        int size = members.size();
+        for (int i = 0; i < size; i++) {
+            int index = Math.floorMod(counter.getAndIncrement(), size);
+            Subscription sub = members.get(index);
+            if (sub.getSessionCtx().getState() == SessionState.CONNECTED) {
+                return sub;
+            }
+        }
+        return null; // no connected member found
     }
 
 }
