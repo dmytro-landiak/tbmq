@@ -30,6 +30,10 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 - [x] Username/password and X.509 certificate-based authentication backed by RocksDB — Validated in Phase 4: Security
 - [x] Topic-level ACL authorization stored in RocksDB — Validated in Phase 4: Security
 - [x] In-process message dispatch (BlockingQueue) replacing Kafka — Validated in Phase 3: Message Dispatch
+- [x] Prometheus metrics surface (message rates, auth counters, dispatch queue depth) — Validated in Phase 7: Hardening and Docker Release
+- [x] Startup warnings for common misconfigurations (TLS, volume mount, retained messages) — Validated in Phase 7: Hardening and Docker Release
+- [x] Soak test infrastructure (ByteBuf leak detection, heap stability) — Validated in Phase 7: Hardening and Docker Release
+- [x] ARM64 validation script for manual hardware smoke testing — Validated in Phase 7: Hardening and Docker Release
 
 ### Out of Scope
 
