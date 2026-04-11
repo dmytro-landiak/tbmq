@@ -23,11 +23,16 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttProperties;
+import io.netty.handler.codec.mqtt.MqttPubReplyMessageVariableHeader;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttPublishVariableHeader;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
+import io.netty.handler.codec.mqtt.MqttReasonCodes;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
+import io.netty.handler.codec.mqtt.MqttUnsubAckPayload;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -103,6 +108,102 @@ public class DefaultMqttMessageGenerator implements MqttMessageGenerator {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(
                 MqttMessageType.PUBCOMP, false, MqttQoS.AT_MOST_ONCE, false, 0);
         return new MqttMessage(fixedHeader, MqttMessageIdVariableHeader.from(packetId));
+    }
+
+    // -------------------------------------------------------------------------
+    // MQTT 5.0 overloads
+    // -------------------------------------------------------------------------
+
+    @Override
+    public MqttConnAckMessage createConnAck(MqttConnectReturnCode returnCode, boolean sessionPresent, MqttProperties properties) {
+        return MqttMessageBuilders.connAck()
+                .returnCode(returnCode)
+                .sessionPresent(sessionPresent)
+                .properties(properties)
+                .build();
+    }
+
+    @Override
+    public MqttPublishMessage createPublish(String topic, int qos, byte[] payload, boolean retain, boolean dup, int packetId, MqttProperties properties) {
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.PUBLISH, dup, MqttQoS.valueOf(qos), retain, 0);
+        MqttPublishVariableHeader variableHeader = new MqttPublishVariableHeader(topic, packetId, properties);
+        return new MqttPublishMessage(fixedHeader, variableHeader, Unpooled.wrappedBuffer(payload));
+    }
+
+    @Override
+    public MqttMessage createPubAck(int packetId, MqttReasonCodes.PubAck reasonCode) {
+        if (reasonCode == null) {
+            return createPubAck(packetId);
+        }
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttPubReplyMessageVariableHeader variableHeader =
+                new MqttPubReplyMessageVariableHeader(packetId, reasonCode.byteValue(), null);
+        return new MqttMessage(fixedHeader, variableHeader);
+    }
+
+    @Override
+    public MqttMessage createPubRec(int packetId, MqttReasonCodes.PubRec reasonCode) {
+        if (reasonCode == null) {
+            return createPubRec(packetId);
+        }
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.PUBREC, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttPubReplyMessageVariableHeader variableHeader =
+                new MqttPubReplyMessageVariableHeader(packetId, reasonCode.byteValue(), null);
+        return new MqttMessage(fixedHeader, variableHeader);
+    }
+
+    @Override
+    public MqttMessage createPubRel(int packetId, MqttReasonCodes.PubRel reasonCode) {
+        if (reasonCode == null) {
+            return createPubRel(packetId);
+        }
+        // Per MQTT spec section 3.6.1: PUBREL fixed header has QoS = 1
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0);
+        MqttPubReplyMessageVariableHeader variableHeader =
+                new MqttPubReplyMessageVariableHeader(packetId, reasonCode.byteValue(), null);
+        return new MqttMessage(fixedHeader, variableHeader);
+    }
+
+    @Override
+    public MqttMessage createPubComp(int packetId, MqttReasonCodes.PubComp reasonCode) {
+        if (reasonCode == null) {
+            return createPubComp(packetId);
+        }
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.PUBCOMP, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttPubReplyMessageVariableHeader variableHeader =
+                new MqttPubReplyMessageVariableHeader(packetId, reasonCode.byteValue(), null);
+        return new MqttMessage(fixedHeader, variableHeader);
+    }
+
+    @Override
+    public MqttSubAckMessage createSubAck(int packetId, List<Integer> grantedQosList, MqttProperties properties) {
+        MqttMessageBuilders.SubAckBuilder builder = MqttMessageBuilders.subAck().packetId(packetId);
+        for (int qos : grantedQosList) {
+            builder.addGrantedQos(MqttQoS.valueOf(qos));
+        }
+        return builder.build();
+    }
+
+    @Override
+    public MqttMessage createUnsubAck(int packetId, List<Short> reasonCodes, MqttProperties properties) {
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.UNSUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttUnsubAckPayload payload = new MqttUnsubAckPayload(reasonCodes);
+        return new MqttUnsubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(packetId), payload);
+    }
+
+    @Override
+    public MqttMessage createDisconnect(MqttReasonCodes.Disconnect reasonCode) {
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttReasonCodeAndPropertiesVariableHeader variableHeader =
+                new MqttReasonCodeAndPropertiesVariableHeader(reasonCode.byteValue(), null);
+        return new MqttMessage(fixedHeader, variableHeader);
     }
 
 }

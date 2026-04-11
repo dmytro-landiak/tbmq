@@ -15,6 +15,7 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.service.mqtt;
 
+import io.netty.handler.codec.mqtt.MqttProperties;
 import lombok.Builder;
 import lombok.Data;
 
@@ -46,5 +47,9 @@ public class PublishMsg {
 
     /** Packet identifier (only meaningful for QoS 1 and 2; 0 for QoS 0). */
     private final int packetId;
+
+    /** MQTT 5.0 properties — MqttProperties.NO_PROPERTIES for MQTT 3.1.1 messages. Never null. */
+    @Builder.Default
+    private final MqttProperties properties = MqttProperties.NO_PROPERTIES;
 
 }

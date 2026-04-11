@@ -150,7 +150,7 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
                     .dup(false)
                     .packetId(0)
                     .build();
-            DeliverMsg deliverMsg = new DeliverMsg(deliveryMsg, deliveryQos);
+            DeliverMsg deliverMsg = new DeliverMsg(deliveryMsg, deliveryQos, 0);
             try {
                 actorSystem.tell(new TbTypeActorId("client", sub.getClientId()), deliverMsg);
             } catch (Exception e) {

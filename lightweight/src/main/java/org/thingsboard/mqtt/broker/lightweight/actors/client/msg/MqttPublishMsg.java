@@ -15,6 +15,7 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.actors.client.msg;
 
+import io.netty.handler.codec.mqtt.MqttProperties;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.thingsboard.mqtt.broker.lightweight.actors.MsgType;
@@ -47,6 +48,9 @@ public class MqttPublishMsg implements TbActorMsg {
 
     /** Packet identifier (only meaningful for QoS 1 and 2; 0 for QoS 0). */
     private final int packetId;
+
+    /** MQTT 5.0 properties extracted from the inbound PUBLISH. Never null (use MqttProperties.NO_PROPERTIES). */
+    private final MqttProperties properties;
 
     @Override
     public MsgType getMsgType() {

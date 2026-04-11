@@ -171,7 +171,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         int packetId = mqttPublishMessage.variableHeader().packetId();
 
         TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
-        actorSystem.tell(actorId, new MqttPublishMsg(topicName, qos, payloadBytes, retain, dup, packetId));
+        actorSystem.tell(actorId, new MqttPublishMsg(topicName, qos, payloadBytes, retain, dup, packetId, io.netty.handler.codec.mqtt.MqttProperties.NO_PROPERTIES));
     }
 
     private void processSubscribe(MqttSubscribeMessage mqttSubscribeMessage) {

@@ -38,6 +38,9 @@ public class DeliverMsg implements TbActorMsg {
     /** Effective delivery QoS — min(publishQoS, subscriptionQoS). */
     private final int deliveryQos;
 
+    /** Subscription Identifier from the matching subscription (0 = no identifier). Per D-06. */
+    private final int subscriptionId;
+
     @Override
     public MsgType getMsgType() {
         return MsgType.DELIVER_MSG;

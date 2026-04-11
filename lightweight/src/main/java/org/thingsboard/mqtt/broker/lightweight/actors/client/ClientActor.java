@@ -320,7 +320,7 @@ public class ClientActor extends AbstractTbActor {
             int grantedQos = Math.min(requestedQos, 2); // broker supports up to QoS 2
             grantedQosList.add(grantedQos);
 
-            Subscription subscription = new Subscription(clientId, grantedQos, sessionCtx);
+            Subscription subscription = new Subscription(clientId, grantedQos, sessionCtx, null, 0);
             subscriptionRegistry.subscribe(topicFilter, subscription);
             log.debug("[{}] Subscribed to '{}' with QoS {}", clientId, topicFilter, grantedQos);
 

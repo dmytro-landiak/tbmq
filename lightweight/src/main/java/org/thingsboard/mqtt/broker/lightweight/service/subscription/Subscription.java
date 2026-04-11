@@ -43,4 +43,13 @@ public class Subscription {
     /** Session context reference used for actor-based delivery to the subscriber's channel. */
     private final ClientSessionCtx sessionCtx;
 
+    /**
+     * Shared subscription group name, or null for non-shared subscriptions.
+     * When non-null, the $share/groupName/ prefix has already been stripped from the topic filter.
+     */
+    private final String shareName;
+
+    /** Subscription Identifier assigned by the client (MQTT 5.0), or 0 if not set. */
+    private final int subscriptionId;
+
 }
