@@ -103,9 +103,9 @@ Plans:
   3. Shared subscription groups (`$share/group/topic`) distribute messages across active subscriber members; a message is delivered to exactly one member of the group per publish
 **Plans:** 3 plans
 Plans:
-- [ ] 06-01-PLAN.md — MQTT 5.0 utility classes, domain model extensions, MqttMessageGenerator 5.0 overloads, YAML config
-- [ ] 06-02-PLAN.md — Version negotiation wiring, CONNACK properties, reason codes, topic aliases, shared subscription routing, message expiry
-- [ ] 06-03-PLAN.md — MQTT 5.0 integration tests (version negotiation, properties, topic alias, reason codes, shared subscriptions)
+- [x] 06-01-PLAN.md — MQTT 5.0 utility classes, domain model extensions, MqttMessageGenerator 5.0 overloads, YAML config
+- [x] 06-02-PLAN.md — Version negotiation wiring, CONNACK properties, reason codes, topic aliases, shared subscription routing, message expiry
+- [x] 06-03-PLAN.md — MQTT 5.0 integration tests (version negotiation, properties, topic alias, reason codes, shared subscriptions)
 
 ### Phase 7: Hardening and Docker Release
 **Goal**: The complete broker passes a 24-hour soak test with zero memory leaks or ByteBuf warnings, the Docker image is validated on real ARM64 hardware, Prometheus metrics are confirmed accurate under load, and the broker emits clear startup warnings for common misconfigurations before public release
