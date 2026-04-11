@@ -88,7 +88,7 @@ Plans:
   1. An MQTT client (e.g., Paho JavaScript, MQTT.js) connects over `ws://` on the configured WebSocket port and publishes/subscribes successfully
   2. An MQTT client connects over `wss://` using TLS with the same mounted server certificate; the WebSocket and TLS layers both function correctly in combination
   3. The broker responds with `Sec-WebSocket-Protocol: mqtt` in the WebSocket handshake response; a browser-based MQTT.js client does not reject the connection
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 05-01-PLAN.md — Abstract bootstrap + handler factory + refactor TCP/TLS + WS frame handlers + config
 - [x] 05-02-PLAN.md — WS/WSS bootstraps + channel initializers + integration tests
@@ -101,7 +101,11 @@ Plans:
   1. An MQTT 5.0 client and an MQTT 3.1.1 client can both be connected simultaneously; each receives protocol-version-appropriate responses (e.g., CONNACK with reason code for 5.0, return code for 3.1.1)
   2. A 5.0 client that sends session expiry interval, user properties, and topic aliases has those properties correctly handled — session expiry enforced, user properties forwarded, topic aliases resolved per-connection
   3. Shared subscription groups (`$share/group/topic`) distribute messages across active subscriber members; a message is delivered to exactly one member of the group per publish
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 06-01-PLAN.md — MQTT 5.0 utility classes, domain model extensions, MqttMessageGenerator 5.0 overloads, YAML config
+- [ ] 06-02-PLAN.md — Version negotiation wiring, CONNACK properties, reason codes, topic aliases, shared subscription routing, message expiry
+- [ ] 06-03-PLAN.md — MQTT 5.0 integration tests (version negotiation, properties, topic alias, reason codes, shared subscriptions)
 
 ### Phase 7: Hardening and Docker Release
 **Goal**: The complete broker passes a 24-hour soak test with zero memory leaks or ByteBuf warnings, the Docker image is validated on real ARM64 hardware, Prometheus metrics are confirmed accurate under load, and the broker emits clear startup warnings for common misconfigurations before public release
@@ -117,7 +121,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -125,6 +129,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Core Protocol (MQTT 3.1.1) | 5/5 | Complete   | 2026-04-07 |
 | 3. Message Dispatch | 3/3 | Complete   | 2026-04-08 |
 | 4. Security | 3/3 | Complete   | 2026-04-09 |
-| 5. WebSocket Transport | 1/2 | In Progress|  |
-| 6. MQTT 5.0 | 0/TBD | Not started | - |
+| 5. WebSocket Transport | 2/2 | Complete |  |
+| 6. MQTT 5.0 | 0/3 | In Progress | - |
 | 7. Hardening and Docker Release | 0/TBD | Not started | - |
