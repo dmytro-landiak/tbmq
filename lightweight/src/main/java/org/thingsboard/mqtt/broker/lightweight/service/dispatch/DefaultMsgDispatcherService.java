@@ -79,6 +79,11 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
 
     @Override
     public void dispatch(PublishMsg msg) {
+        if (!running || queue == null) {
+            log.debug("[{}] Dispatcher not running — message dropped during startup/shutdown",
+                    msg.getTopicName());
+            return;
+        }
         if (!queue.offer(msg)) {
             droppedMsgsCounter.increment();
             log.debug("[{}] Dispatch queue full -- message dropped", msg.getTopicName());
