@@ -25,9 +25,12 @@ import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttReasonCodes;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttVersion;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
@@ -50,6 +53,7 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.MqttUnsubscribe
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.PingMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
+import org.thingsboard.mqtt.broker.lightweight.config.Mqtt5Configuration;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
 import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
@@ -62,6 +66,9 @@ import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionCtx;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionRegistry;
 import org.thingsboard.mqtt.broker.lightweight.session.DisconnectReasonType;
 import org.thingsboard.mqtt.broker.lightweight.session.SessionState;
+import org.thingsboard.mqtt.broker.lightweight.session.TopicAliasCtx;
+import org.thingsboard.mqtt.broker.lightweight.util.MqttPropertiesUtil;
+import org.thingsboard.mqtt.broker.lightweight.util.MqttReasonCodeResolver;
 
 import java.util.UUID;
 
@@ -97,6 +104,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
     private final LightweightAuthService authService;
     private final AuthorizationRuleService authorizationRuleService;
     private final MeterRegistry meterRegistry;
+    private final Mqtt5Configuration mqtt5Config;
 
     /** Session context — null until CONNECT is processed. */
     private ClientSessionCtx sessionCtx;
@@ -144,7 +152,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
             case CONNECT -> processConnect(ctx, (MqttConnectMessage) msg);
             case DISCONNECT -> processDisconnect(ctx);
             case PINGREQ -> processPing();
-            case PUBLISH -> processPublish((MqttPublishMessage) msg);
+            case PUBLISH -> processPublish(ctx, (MqttPublishMessage) msg);
             case SUBSCRIBE -> processSubscribe((MqttSubscribeMessage) msg);
             case UNSUBSCRIBE -> processUnsubscribe((MqttUnsubscribeMessage) msg);
             case PUBACK -> processPubAck(msg);
@@ -158,7 +166,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void processPublish(MqttPublishMessage mqttPublishMessage) {
+    private void processPublish(ChannelHandlerContext ctx, MqttPublishMessage mqttPublishMessage) {
         if (sessionCtx == null) {
             return;
         }
@@ -170,8 +178,41 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         boolean dup = mqttPublishMessage.fixedHeader().isDup();
         int packetId = mqttPublishMessage.variableHeader().packetId();
 
+        // MQTT 5.0: Extract properties and resolve topic alias
+        MqttProperties properties = MqttProperties.NO_PROPERTIES;
+        if (sessionCtx.getMqttVersion() == MqttVersion.MQTT_5) {
+            MqttProperties inboundProps = mqttPublishMessage.variableHeader().properties();
+            if (inboundProps != null && inboundProps != MqttProperties.NO_PROPERTIES) {
+                // Copy properties for forwarding before ByteBuf release
+                properties = MqttPropertiesUtil.copyPublishPropertiesToDeliver(inboundProps);
+            }
+
+            // Topic alias resolution — per D-12, D-13
+            int topicAlias = MqttPropertiesUtil.getTopicAlias(mqttPublishMessage.variableHeader().properties());
+            if (topicAlias > 0) {
+                try {
+                    String resolved = sessionCtx.getTopicAliasCtx().getTopicNameByAlias(topicName, topicAlias);
+                    if (resolved != null) {
+                        topicName = resolved;
+                    } else if (topicName == null || topicName.isEmpty()) {
+                        // Alias not found and no topic name — protocol error
+                        log.warn("[{}] Topic alias {} has no mapping and topic name is empty",
+                                sessionCtx.getClientId(), topicAlias);
+                        disconnect(ctx, DisconnectReasonType.ON_PROTOCOL_ERROR,
+                                "Topic alias with no mapping");
+                        return;
+                    }
+                } catch (RuntimeException e) {
+                    // Topic alias validation failed (alias=0 or exceeds max)
+                    log.warn("[{}] Invalid topic alias: {}", sessionCtx.getClientId(), e.getMessage());
+                    disconnect(ctx, DisconnectReasonType.ON_PROTOCOL_ERROR, e.getMessage());
+                    return;
+                }
+            }
+        }
+
         TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
-        actorSystem.tell(actorId, new MqttPublishMsg(topicName, qos, payloadBytes, retain, dup, packetId, io.netty.handler.codec.mqtt.MqttProperties.NO_PROPERTIES));
+        actorSystem.tell(actorId, new MqttPublishMsg(topicName, qos, payloadBytes, retain, dup, packetId, properties));
     }
 
     private void processSubscribe(MqttSubscribeMessage mqttSubscribeMessage) {
@@ -243,6 +284,28 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         sessionCtx = new ClientSessionCtx(UUID.randomUUID(), ctx);
         sessionCtx.setClientId(clientId);
 
+        // MQTT version detection — per PROTO-08
+        int versionLevel = connectMsg.variableHeader().version();
+        MqttVersion mqttVersion = (versionLevel == MqttVersion.MQTT_5.protocolLevel())
+                ? MqttVersion.MQTT_5 : MqttVersion.MQTT_3_1_1;
+        sessionCtx.setMqttVersion(mqttVersion);
+
+        // Topic alias context — per D-12, D-13
+        TopicAliasCtx aliasCtx;
+        if (mqttVersion == MqttVersion.MQTT_5) {
+            aliasCtx = new TopicAliasCtx(true, mqtt5Config.getTopicAliasMax());
+        } else {
+            aliasCtx = TopicAliasCtx.DISABLED_TOPIC_ALIASES;
+        }
+        sessionCtx.setTopicAliasCtx(aliasCtx);
+
+        // Receive Maximum — per D-04
+        if (mqttVersion == MqttVersion.MQTT_5) {
+            MqttProperties connectProps = connectMsg.variableHeader().properties();
+            int clientReceiveMax = MqttPropertiesUtil.getReceiveMaxFromConnect(connectProps);
+            sessionCtx.setReceiveMaximum(Math.min(clientReceiveMax, mqtt5Config.getReceiveMaximum()));
+        }
+
         // Extract SslHandler for mTLS/X.509 client certificate authentication (null for plain TCP)
         SslHandler sslHandler = (SslHandler) ctx.pipeline().get("ssl");
 
@@ -250,7 +313,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         actorSystem.createRootActor(CLIENT_DISPATCHER, new ClientActorCreator(
                 clientId, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
                 retainedMsgService, lastWillService, msgDispatcherService,
-                authService, authorizationRuleService, meterRegistry));
+                authService, authorizationRuleService, meterRegistry, mqtt5Config));
 
         actorSystem.tell(actorId, new SessionInitMsg(sessionCtx));
         actorSystem.tell(actorId, new MqttConnectMsg(connectMsg, sessionCtx, sslHandler));
@@ -260,6 +323,8 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
 
     private void processDisconnect(ChannelHandlerContext ctx) {
         if (sessionCtx != null) {
+            // Per D-03: Ignore Session Expiry Interval in DISCONNECT packets
+            // Always clean up immediately regardless of any properties
             TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
             actorSystem.tell(actorId, new MqttDisconnectMsg(DisconnectReasonType.ON_DISCONNECT_MSG, "Client disconnected"));
         } else {
@@ -309,12 +374,31 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
 
     /**
      * Closes the channel and marks the session as disconnecting.
+     * For MQTT 5.0 clients, sends a DISCONNECT packet with reason code before closing.
      */
     private void disconnect(ChannelHandlerContext ctx, DisconnectReasonType reasonType, String reason) {
         log.debug("[{}] Disconnecting: {} — {}",
                 sessionCtx != null ? sessionCtx.getClientId() : "unknown", reasonType, reason);
         if (sessionCtx != null) {
             sessionCtx.setState(SessionState.DISCONNECTING);
+
+            // For MQTT 5.0: send DISCONNECT with reason code before closing (broker-initiated)
+            if (sessionCtx.getMqttVersion() == MqttVersion.MQTT_5) {
+                MqttReasonCodes.Disconnect reasonCode;
+                if (reasonType == DisconnectReasonType.ON_PROTOCOL_ERROR || reasonType == DisconnectReasonType.ON_MALFORMED_PACKET) {
+                    reasonCode = MqttReasonCodeResolver.disconnectProtocolError();
+                } else if (reasonType == DisconnectReasonType.ON_PACKET_TOO_LARGE) {
+                    reasonCode = MqttReasonCodes.Disconnect.PACKET_TOO_LARGE;
+                } else {
+                    reasonCode = MqttReasonCodes.Disconnect.UNSPECIFIED_ERROR;
+                }
+                try {
+                    ctx.writeAndFlush(messageGenerator.createDisconnect(reasonCode));
+                } catch (Exception e) {
+                    log.debug("[{}] Failed to send DISCONNECT to 5.0 client: {}",
+                            sessionCtx.getClientId(), e.getMessage());
+                }
+            }
         }
         ctx.close();
     }

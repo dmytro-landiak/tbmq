@@ -19,6 +19,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorSystem;
+import org.thingsboard.mqtt.broker.lightweight.config.Mqtt5Configuration;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
 import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
 import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
@@ -52,6 +53,7 @@ public class MqttSessionHandlerFactory {
     private final LightweightAuthService authService;
     private final AuthorizationRuleService authorizationRuleService;
     private final MeterRegistry meterRegistry;
+    private final Mqtt5Configuration mqtt5Config;
 
     /**
      * Creates a new {@link MqttSessionHandler} instance.
@@ -64,7 +66,7 @@ public class MqttSessionHandlerFactory {
     public MqttSessionHandler create() {
         return new MqttSessionHandler(actorSystem, sessionRegistry, messageGenerator,
                 mqttConfig, subscriptionRegistry, retainedMsgService, lastWillService,
-                msgDispatcherService, authService, authorizationRuleService, meterRegistry);
+                msgDispatcherService, authService, authorizationRuleService, meterRegistry, mqtt5Config);
     }
 
 }
