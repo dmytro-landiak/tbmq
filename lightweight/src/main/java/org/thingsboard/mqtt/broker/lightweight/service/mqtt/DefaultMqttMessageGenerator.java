@@ -21,6 +21,7 @@ import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
+import io.netty.handler.codec.mqtt.MqttMessageIdAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
@@ -31,6 +32,7 @@ import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttReasonCodes;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
+import io.netty.handler.codec.mqtt.MqttSubAckPayload;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubAckPayload;
 import lombok.extern.slf4j.Slf4j;
@@ -61,11 +63,14 @@ public class DefaultMqttMessageGenerator implements MqttMessageGenerator {
 
     @Override
     public MqttSubAckMessage createSubAck(int packetId, List<Integer> grantedQosList) {
-        MqttMessageBuilders.SubAckBuilder builder = MqttMessageBuilders.subAck().packetId(packetId);
-        for (int qos : grantedQosList) {
-            builder.addGrantedQos(MqttQoS.valueOf(qos));
-        }
-        return builder.build();
+        // Use MqttSubAckPayload(int[]) directly to support both MQTT 3.1.1 QoS codes (0-2)
+        // and MQTT 5.0 reason codes (e.g. NOT_AUTHORIZED = 0x87). The SubAckBuilder only
+        // accepts MqttQoS and would throw for values outside {0,1,2,-1}.
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        int[] codes = grantedQosList.stream().mapToInt(Integer::intValue).toArray();
+        MqttSubAckPayload payload = new MqttSubAckPayload(codes);
+        return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(packetId), payload);
     }
 
     @Override
@@ -182,11 +187,17 @@ public class DefaultMqttMessageGenerator implements MqttMessageGenerator {
 
     @Override
     public MqttSubAckMessage createSubAck(int packetId, List<Integer> grantedQosList, MqttProperties properties) {
-        MqttMessageBuilders.SubAckBuilder builder = MqttMessageBuilders.subAck().packetId(packetId);
-        for (int qos : grantedQosList) {
-            builder.addGrantedQos(MqttQoS.valueOf(qos));
-        }
-        return builder.build();
+        // MQTT 5.0 SUBACK: payload uses raw reason codes (not QoS), so build directly
+        // instead of going through SubAckBuilder which calls MqttQoS.valueOf() and fails for
+        // non-QoS codes such as NOT_AUTHORIZED (0x87).
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(
+                MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttMessageIdAndPropertiesVariableHeader variableHeader =
+                new MqttMessageIdAndPropertiesVariableHeader(packetId,
+                        properties != null ? properties : MqttProperties.NO_PROPERTIES);
+        int[] codes = grantedQosList.stream().mapToInt(Integer::intValue).toArray();
+        MqttSubAckPayload payload = new MqttSubAckPayload(codes);
+        return new MqttSubAckMessage(fixedHeader, variableHeader, payload);
     }
 
     @Override

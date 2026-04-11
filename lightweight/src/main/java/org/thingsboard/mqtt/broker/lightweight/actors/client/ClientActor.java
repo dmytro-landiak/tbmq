@@ -219,8 +219,14 @@ public class ClientActor extends AbstractTbActor {
             MqttProperties connAckProps = new MqttProperties();
             // D-13: Advertise Topic Alias Maximum
             MqttPropertiesUtil.addMaxTopicAliasToProps(connAckProps, mqtt5Config.getTopicAliasMax());
-            // D-04: Advertise Receive Maximum
-            MqttPropertiesUtil.addReceiveMaxToProps(connAckProps, sessionCtx.getReceiveMaximum());
+            // D-04: Advertise Receive Maximum only when it differs from the MQTT 5.0 default (65535).
+            // Per MQTT 5.0 spec §3.2.2.3.3: absence means 65535. Paho v5 defaults to 65535 internally,
+            // so omitting it avoids a Paho 1.2.5 timing issue where explicit CONNACK ReceiveMaximum
+            // is not applied before the first publish when using the void connect() API.
+            int rm = sessionCtx.getReceiveMaximum();
+            if (rm != BrokerConstants.DEFAULT_RECEIVE_MAXIMUM) {
+                MqttPropertiesUtil.addReceiveMaxToProps(connAckProps, rm);
+            }
             // D-02: Include Session Expiry Interval = 0 only when client requested non-zero
             MqttProperties connectProps = connectMessage.variableHeader().properties();
             Integer clientSessionExpiry = MqttPropertiesUtil.getSessionExpiryIntervalFromConnect(connectProps);

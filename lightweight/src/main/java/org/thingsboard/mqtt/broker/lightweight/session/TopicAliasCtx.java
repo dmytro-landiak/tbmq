@@ -28,18 +28,23 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <ul>
  *   <li><b>clientMappings</b> (inbound) — client-to-broker direction: alias number → topic name.
  *       Populated when the client sends PUBLISH with a non-empty topic name and a topic alias.
- *       Used to resolve subsequent PUBLISH packets where the topic name is empty.</li>
+ *       Used to resolve subsequent PUBLISH packets where the topic name is empty.
+ *       The capacity is determined by the broker's CONNACK {@code TopicAliasMaximum}
+ *       ({@link #inboundMax}).</li>
  *   <li><b>serverMappings</b> (outbound) — broker-to-client direction: topic name → alias number.
- *       Populated lazily as the broker assigns aliases for outbound PUBLISH to this client.</li>
+ *       Populated lazily as the broker assigns aliases for outbound PUBLISH to this client.
+ *       The capacity is determined by the client's CONNECT {@code TopicAliasMaximum}
+ *       ({@link #outboundMax}). Zero means the broker must not send outbound aliases.</li>
  * </ul>
  *
  * <p>Per [MQTT-3.3.2-7]: Topic Alias 0 is a protocol error. Per [MQTT-3.3.2-8]: a Topic Alias
- * greater than Topic Alias Maximum (from CONNECT) is a protocol error. Both cases trigger
- * {@link #validateTopicAlias(int)}, which throws a {@link RuntimeException} that the caller
+ * greater than Topic Alias Maximum is a protocol error. Both cases trigger
+ * {@link #validateInboundAlias(int)}, which throws a {@link RuntimeException} that the caller
  * catches to disconnect the client with reason code {@code TOPIC_ALIAS_INVALID}.
  *
- * <p>The static {@link #DISABLED_TOPIC_ALIASES} singleton represents a disabled context
- * (MQTT 3.1.1 clients, or when the client advertises Topic Alias Maximum = 0).
+ * <p>The static {@link #DISABLED_TOPIC_ALIASES} singleton represents a disabled context for
+ * MQTT 3.1.1 clients. MQTT 5.0 clients should always get a fresh instance so inbound
+ * client-to-broker aliases can be tracked per connection.
  */
 @Slf4j
 @Getter
@@ -47,15 +52,23 @@ public class TopicAliasCtx {
 
     /**
      * Singleton representing disabled topic alias support.
-     * Used for MQTT 3.1.1 clients and MQTT 5.0 clients with topicAliasMax = 0.
+     * Used for MQTT 3.1.1 clients only. MQTT 5.0 clients must use a fresh instance.
      */
-    public static final TopicAliasCtx DISABLED_TOPIC_ALIASES = new TopicAliasCtx(false, 0);
+    public static final TopicAliasCtx DISABLED_TOPIC_ALIASES = new TopicAliasCtx(0, 0);
 
-    /** Whether topic alias support is enabled for this session. */
-    private final boolean enabled;
+    /**
+     * Inbound alias capacity — from the broker's CONNACK TopicAliasMaximum.
+     * Tells the client how many topic aliases it may use when publishing to the broker.
+     * 0 means the client must not use topic aliases.
+     */
+    private final int inboundMax;
 
-    /** Maximum alias number this session can use (from client's CONNECT Topic Alias Maximum). */
-    private final int maxTopicAlias;
+    /**
+     * Outbound alias capacity — from the client's CONNECT TopicAliasMaximum.
+     * The maximum alias number the broker may use when publishing to this client.
+     * 0 means the broker must not use outbound topic aliases.
+     */
+    private final int outboundMax;
 
     /** Inbound alias map: alias number → topic name (client sends aliases to broker). */
     private final ConcurrentHashMap<Integer, String> clientMappings;
@@ -69,12 +82,12 @@ public class TopicAliasCtx {
     /**
      * Creates a new topic alias context.
      *
-     * @param enabled       whether topic alias support is active
-     * @param maxTopicAlias the maximum alias number (0 means disabled)
+     * @param inboundMax  the maximum alias number the client may use inbound (from broker CONNACK)
+     * @param outboundMax the maximum alias number the broker may use outbound (from client CONNECT)
      */
-    public TopicAliasCtx(boolean enabled, int maxTopicAlias) {
-        this.enabled = enabled;
-        this.maxTopicAlias = maxTopicAlias;
+    public TopicAliasCtx(int inboundMax, int outboundMax) {
+        this.inboundMax = inboundMax;
+        this.outboundMax = outboundMax;
         this.clientMappings = new ConcurrentHashMap<>();
         this.serverMappings = new ConcurrentHashMap<>();
         this.nextServerAlias = new AtomicInteger(1);
@@ -87,20 +100,20 @@ public class TopicAliasCtx {
      * <ol>
      *   <li>If alias is provided and non-empty topic name: store the mapping, return topic name.</li>
      *   <li>If alias is provided and empty topic name: look up existing mapping, return it.</li>
-     *   <li>If no alias present: return {@code null} (caller uses the topic name directly).</li>
+     *   <li>If no alias present (topicAlias == 0): return {@code null} (caller uses topic directly).</li>
      * </ol>
      *
      * @param topicName  the topic name from the PUBLISH (may be empty if alias is used)
      * @param topicAlias the topic alias from PUBLISH properties (0 = no alias)
      * @return resolved topic name, or {@code null} if no alias was present in the packet
-     * @throws RuntimeException if the alias is invalid (0 or exceeds maximum)
+     * @throws RuntimeException if the alias is invalid (0 or exceeds inbound maximum)
      */
     public String getTopicNameByAlias(String topicName, int topicAlias) {
-        if (!enabled || topicAlias == 0) {
+        if (topicAlias == 0) {
             return null;
         }
 
-        validateTopicAlias(topicAlias);
+        validateInboundAlias(topicAlias);
 
         if (!topicName.isEmpty()) {
             // Client is establishing or updating the alias mapping
@@ -120,7 +133,7 @@ public class TopicAliasCtx {
      * Returns the topic alias to use for an outbound PUBLISH to this client,
      * or {@code 0} if no alias should be used.
      *
-     * <p>Assigns new aliases lazily up to {@link #maxTopicAlias}. Once all slots
+     * <p>Assigns new aliases lazily up to {@link #outboundMax}. Once all slots
      * are used, existing aliases are reused but no new ones are allocated.
      *
      * @param topicName           the outbound topic name
@@ -128,7 +141,7 @@ public class TopicAliasCtx {
      * @return assigned alias (existing or new), or {@code 0} if no alias applies
      */
     public int getTopicAliasForPublish(String topicName, int minTopicNameLength) {
-        if (!enabled || topicName.length() < minTopicNameLength) {
+        if (outboundMax == 0 || topicName.length() < minTopicNameLength) {
             return 0;
         }
 
@@ -138,9 +151,9 @@ public class TopicAliasCtx {
         }
 
         // Allocate a new alias slot if capacity remains
-        if (serverMappings.size() < maxTopicAlias) {
+        if (serverMappings.size() < outboundMax) {
             int alias = nextServerAlias.getAndIncrement();
-            if (alias <= maxTopicAlias) {
+            if (alias <= outboundMax) {
                 serverMappings.put(topicName, alias);
                 return alias;
             }
@@ -151,7 +164,7 @@ public class TopicAliasCtx {
     }
 
     /**
-     * Validates that a topic alias from the client is within the allowed range.
+     * Validates that an inbound topic alias from the client is within the allowed range.
      *
      * <p>Per [MQTT-3.3.2-7]: Topic Alias 0 is a protocol error.
      * Per [MQTT-3.3.2-8]: Topic Alias > Topic Alias Maximum is a protocol error.
@@ -159,12 +172,12 @@ public class TopicAliasCtx {
      * @param topicAlias the alias value to validate
      * @throws RuntimeException if the alias is invalid
      */
-    public void validateTopicAlias(int topicAlias) {
+    public void validateInboundAlias(int topicAlias) {
         if (topicAlias == 0) {
             throw new RuntimeException("Topic Alias is zero — protocol error");
         }
-        if (topicAlias > maxTopicAlias) {
-            throw new RuntimeException("Topic Alias " + topicAlias + " exceeds maximum " + maxTopicAlias);
+        if (inboundMax > 0 && topicAlias > inboundMax) {
+            throw new RuntimeException("Topic Alias " + topicAlias + " exceeds inbound maximum " + inboundMax);
         }
     }
 

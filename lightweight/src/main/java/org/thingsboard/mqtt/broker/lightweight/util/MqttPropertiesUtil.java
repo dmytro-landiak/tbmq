@@ -253,8 +253,14 @@ public final class MqttPropertiesUtil {
     /**
      * Creates a new {@link MqttProperties} object copying all properties relevant
      * for outbound PUBLISH delivery (user props, payload format indicator, content type,
-     * response topic, correlation data). The message expiry interval is NOT copied here —
-     * callers must compute the remaining interval and add it separately if needed.
+     * response topic, correlation data, and message expiry interval).
+     *
+     * <p>The message expiry interval is copied as-is from the inbound PUBLISH.  When
+     * forwarding a stored message to a subscriber the caller is responsible for
+     * recomputing the remaining interval via
+     * {@link #getRemainingExpiryInterval(long, int)}.  Storing the original interval
+     * here is required so that the retained-message expiry check
+     * ({@link #isRetainedMsgExpired}) can compare it against {@code createdTime}.
      *
      * @param source the original inbound PUBLISH properties
      * @return a new MqttProperties with the copied properties (never null)
@@ -263,6 +269,12 @@ public final class MqttPropertiesUtil {
         MqttProperties dest = new MqttProperties();
         if (source == null || source == MqttProperties.NO_PROPERTIES) {
             return dest;
+        }
+
+        // Message expiry interval — required for retained message expiry checks
+        MqttProperties.MqttProperty expiryInterval = source.getProperty(BrokerConstants.PUB_EXPIRY_INTERVAL_PROP_ID);
+        if (expiryInterval != null) {
+            dest.add(expiryInterval);
         }
 
         // User properties

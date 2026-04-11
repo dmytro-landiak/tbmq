@@ -291,9 +291,22 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         sessionCtx.setMqttVersion(mqttVersion);
 
         // Topic alias context — per D-12, D-13
+        // Two independent limits:
+        //   inboundMax  = broker's CONNACK TopicAliasMaximum — how many aliases the CLIENT may use
+        //                 when publishing to the broker. We advertise mqtt5Config.getTopicAliasMax().
+        //   outboundMax = client's CONNECT TopicAliasMaximum — how many aliases the BROKER may use
+        //                 when publishing to the client. Default 0 = client did not opt-in.
+        // MQTT 3.1.1 clients never use aliases (disabled singleton has inboundMax=0, outboundMax=0).
         TopicAliasCtx aliasCtx;
         if (mqttVersion == MqttVersion.MQTT_5) {
-            aliasCtx = new TopicAliasCtx(true, mqtt5Config.getTopicAliasMax());
+            MqttProperties connectProps = connectMsg.variableHeader().properties();
+            int clientTopicAliasMax = MqttPropertiesUtil.getTopicAliasMaxFromConnect(connectProps);
+            // Inbound: the broker advertises topicAliasMax in CONNACK, so the client may use aliases
+            int inboundMax = mqtt5Config.getTopicAliasMax();
+            // Outbound: respect client's limit (min of what client allows vs what broker wants to use)
+            int outboundMax = clientTopicAliasMax > 0
+                    ? Math.min(clientTopicAliasMax, mqtt5Config.getTopicAliasMax()) : 0;
+            aliasCtx = new TopicAliasCtx(inboundMax, outboundMax);
         } else {
             aliasCtx = TopicAliasCtx.DISABLED_TOPIC_ALIASES;
         }
@@ -301,8 +314,8 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
 
         // Receive Maximum — per D-04
         if (mqttVersion == MqttVersion.MQTT_5) {
-            MqttProperties connectProps = connectMsg.variableHeader().properties();
-            int clientReceiveMax = MqttPropertiesUtil.getReceiveMaxFromConnect(connectProps);
+            MqttProperties connectProps5 = connectMsg.variableHeader().properties();
+            int clientReceiveMax = MqttPropertiesUtil.getReceiveMaxFromConnect(connectProps5);
             sessionCtx.setReceiveMaximum(Math.min(clientReceiveMax, mqtt5Config.getReceiveMaximum()));
         }
 
