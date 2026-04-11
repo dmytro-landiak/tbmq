@@ -118,8 +118,8 @@ Plans:
   4. The broker logs a clear startup warning when TLS is not configured, when `/data/rocksdb` is not volume-mounted, and when retained messages are in-memory only
 **Plans:** 2 plans
 Plans:
-- [ ] 07-01-PLAN.md — Prometheus metrics completeness + startup warning service + integration tests
-- [ ] 07-02-PLAN.md — Soak test + ARM64 validation script + human verification checkpoint
+- [x] 07-01-PLAN.md — Prometheus metrics completeness + startup warning service + integration tests
+- [x] 07-02-PLAN.md — Soak test + ARM64 validation script + human verification checkpoint
 
 ## Progress
 
