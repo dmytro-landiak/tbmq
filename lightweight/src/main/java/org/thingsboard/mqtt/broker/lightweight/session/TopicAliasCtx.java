@@ -150,17 +150,18 @@ public class TopicAliasCtx {
             return existing;
         }
 
-        // Allocate a new alias slot if capacity remains
-        if (serverMappings.size() < outboundMax) {
+        // Atomically check-and-assign using computeIfAbsent to avoid TOCTOU race
+        // between size check and alias allocation
+        int[] allocated = {0};
+        serverMappings.computeIfAbsent(topicName, k -> {
             int alias = nextServerAlias.getAndIncrement();
             if (alias <= outboundMax) {
-                serverMappings.put(topicName, alias);
+                allocated[0] = alias;
                 return alias;
             }
-            // Race: someone incremented past max — do not assign
-        }
-
-        return 0;
+            return null; // returns null -> no mapping stored
+        });
+        return allocated[0];
     }
 
     /**
