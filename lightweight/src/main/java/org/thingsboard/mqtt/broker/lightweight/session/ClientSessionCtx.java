@@ -16,8 +16,10 @@
 package org.thingsboard.mqtt.broker.lightweight.session;
 
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.mqtt.MqttVersion;
 import lombok.Getter;
 import lombok.Setter;
+import org.thingsboard.mqtt.broker.lightweight.common.BrokerConstants;
 import org.thingsboard.mqtt.broker.lightweight.packet.PacketIdAllocator;
 import org.thingsboard.mqtt.broker.lightweight.security.auth.AuthRulePatterns;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.PublishMsg;
@@ -95,6 +97,15 @@ public class ClientSessionCtx {
      * Empty list means anonymous access — ACL checks are bypassed entirely.
      */
     private volatile List<AuthRulePatterns> authRulePatterns = Collections.emptyList();
+
+    /** MQTT protocol version for this connection (MQTT_5 or MQTT_3_1_1). */
+    private volatile MqttVersion mqttVersion = MqttVersion.MQTT_3_1_1;
+
+    /** Per-session bidirectional topic alias context. DISABLED_TOPIC_ALIASES for 3.1.1 clients. */
+    private volatile TopicAliasCtx topicAliasCtx = TopicAliasCtx.DISABLED_TOPIC_ALIASES;
+
+    /** Maximum number of in-flight QoS 1/2 messages this client can receive (Receive Maximum). */
+    private volatile int receiveMaximum = BrokerConstants.DEFAULT_RECEIVE_MAXIMUM;
 
     public ClientSessionCtx(UUID sessionId, ChannelHandlerContext channel) {
         this.sessionId = sessionId;

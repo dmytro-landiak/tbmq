@@ -15,6 +15,10 @@ tbmq:
     max-payload-size: "${TBMQ_MQTT_MAX_PAYLOAD_SIZE:268435456}"
     max-client-id-length: "${TBMQ_MQTT_MAX_CLIENT_ID_LENGTH:128}"
     keep-alive-max: "${TBMQ_MQTT_KEEP_ALIVE_MAX:600}"
+  mqtt5:
+    topic-alias-max: "${TBMQ_TOPIC_ALIAS_MAX:10}"
+    receive-maximum: "${TBMQ_RECEIVE_MAXIMUM:65535}"
+    min-topic-alias-length: "${TBMQ_MIN_TOPIC_ALIAS_LENGTH:5}"
   dispatch:
     queue-capacity: "${TBMQ_DISPATCH_QUEUE_CAPACITY:100000}"
     consumer-threads: "${TBMQ_DISPATCH_CONSUMER_THREADS:2}"

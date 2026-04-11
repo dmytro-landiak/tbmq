@@ -15,6 +15,7 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.service.mqtt.retain;
 
+import io.netty.handler.codec.mqtt.MqttProperties;
 import lombok.Builder;
 import lombok.Data;
 
@@ -36,5 +37,13 @@ public class RetainedMsg {
 
     /** Message payload bytes (non-empty; empty payload clears the retained message). */
     private final byte[] payload;
+
+    /** Timestamp when this retained message was stored. Used for message expiry calculation. */
+    @Builder.Default
+    private final long createdTime = System.currentTimeMillis();
+
+    /** MQTT 5.0 properties (user properties, payload format, content type, expiry interval). Never null. */
+    @Builder.Default
+    private final MqttProperties properties = MqttProperties.NO_PROPERTIES;
 
 }

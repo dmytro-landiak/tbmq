@@ -91,6 +91,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Eclipse Paho MQTT v5 client — integration tests for MQTT 5.0 support -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.mqttv5.client</artifactId>
+            <version>1.2.5</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Awaitility for async test assertions -->
         <dependency>
             <groupId>org.awaitility</groupId>
