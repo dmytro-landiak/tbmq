@@ -444,8 +444,17 @@ public class ClientActor extends AbstractTbActor {
             log.debug("[{}] Unsubscribed from '{}'", clientId, topic);
         }
 
-        sessionCtx.getChannel().writeAndFlush(
-                messageGenerator.createUnsubAck(packetId));
+        if (sessionCtx.getMqttVersion() == MqttVersion.MQTT_5) {
+            List<Short> reasonCodes = new ArrayList<>();
+            for (String topic : topics) {
+                reasonCodes.add((short) MqttReasonCodes.UnsubAck.SUCCESS.byteValue());
+            }
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createUnsubAck(packetId, reasonCodes, MqttProperties.NO_PROPERTIES));
+        } else {
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createUnsubAck(packetId));
+        }
     }
 
     private void processPublish(MqttPublishMsg msg) {
