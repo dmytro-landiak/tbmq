@@ -23,6 +23,10 @@
         <netty.version>4.1.122.Final</netty.version>
         <rocksdb.version>9.7.4</rocksdb.version>
         <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
+        <!-- Soak tests are excluded from the default test run.
+             Override with -Dsurefire.excludedGroups= to clear the exclusion,
+             or use -Dgroups=soak -Dsurefire.excludedGroups= to run only soak tests. -->
+        <surefire.excludedGroups>soak</surefire.excludedGroups>
     </properties>
 
     <dependencies>
@@ -146,7 +150,11 @@
                          all these heavyweight contexts causes the JVM to be killed (exit code 143). -->
                     <reuseForks>true</reuseForks>
                     <argLine>-Djava.library.path=${java.io.tmpdir} -Dio.netty.leakDetection.level=PARANOID</argLine>
-                    <excludedGroups>soak</excludedGroups>
+                    <!-- Excluded groups are controlled via the surefire.excludedGroups property.
+                         Default value is "soak" (set in <properties>).
+                         To run soak tests: mvn test -Dgroups=soak -Dsurefire.excludedGroups=
+                         To run all tests: mvn test -Dsurefire.excludedGroups= -->
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
