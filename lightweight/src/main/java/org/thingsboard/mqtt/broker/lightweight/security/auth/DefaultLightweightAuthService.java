@@ -155,12 +155,17 @@ public class DefaultLightweightAuthService implements LightweightAuthService {
 
         try {
             BasicMqttCredentials basicCreds = objectMapper.readValue(credential.getCredentialValue(), BasicMqttCredentials.class);
-            if (basicCreds.getPassword() != null) {
-                if (password == null || !passwordEncoder.matches(password, basicCreds.getPassword())) {
-                    log.warn("Password mismatch for username: {}", username);
-                    authFailureCounter.increment();
-                    return AuthResult.failure("Bad username or password");
-                }
+            // If no password is stored, reject basic auth — null-password credentials
+            // should not bypass authentication (may indicate misconfigured credential)
+            if (basicCreds.getPassword() == null) {
+                log.warn("Basic credential for '{}' has no password configured — rejecting", username);
+                authFailureCounter.increment();
+                return AuthResult.failure("Bad username or password");
+            }
+            if (password == null || !passwordEncoder.matches(password, basicCreds.getPassword())) {
+                log.warn("Password mismatch for username: {}", username);
+                authFailureCounter.increment();
+                return AuthResult.failure("Bad username or password");
             }
 
             List<AuthRulePatterns> patterns = authorizationRuleService.parseAuthorizationRule(basicCreds);
