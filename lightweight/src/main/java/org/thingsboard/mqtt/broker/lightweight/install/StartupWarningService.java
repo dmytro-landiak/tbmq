@@ -72,10 +72,10 @@ public class StartupWarningService {
             warnings.add("  Mount a volume: docker run -v /host/data:/data/rocksdb ...");
         }
 
-        // D-11 condition 3: Retained messages are always in-memory in R1
-        warnings.add("Retained messages are stored in-memory only.");
-        warnings.add("  They will be lost on broker restart (R1 limitation).");
+        // R1 limitation: always log at INFO — this is not a misconfiguration
+        log.info("NOTE: Retained messages are stored in-memory only. They will be lost on broker restart (R1 limitation).");
 
+        // Only emit the WARNING banner for actual misconfigurations
         if (!warnings.isEmpty()) {
             String border = "=".repeat(70);
             log.warn("\n{}\n  TBMQ LIGHTWEIGHT — STARTUP WARNINGS\n{}\n  {}\n{}",
