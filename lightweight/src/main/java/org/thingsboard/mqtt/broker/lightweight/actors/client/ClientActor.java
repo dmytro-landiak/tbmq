@@ -206,6 +206,11 @@ public class ClientActor extends AbstractTbActor {
             lastWillService.removeWillWithoutDelivery(oldSession.getSessionId());
             // Remove old subscriptions — new session starts clean
             subscriptionRegistry.removeAllSubscriptions(clientId);
+            // Clear old session's QoS state and release packet IDs to avoid resource leak
+            oldSession.getInboundQos2().clear();
+            oldSession.getOutboundQos1().clear();
+            oldSession.getOutboundQos2().clear();
+            oldSession.getPacketIdAllocator().releaseAll();
             // Close the old session's channel
             oldSession.setState(SessionState.DISCONNECTING);
             if (oldSession.getChannel().channel().isActive()) {
