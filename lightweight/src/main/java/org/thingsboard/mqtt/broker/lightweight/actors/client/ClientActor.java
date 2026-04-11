@@ -419,8 +419,13 @@ public class ClientActor extends AbstractTbActor {
             }
         }
 
-        sessionCtx.getChannel().writeAndFlush(
-                messageGenerator.createSubAck(packetId, grantedQosList));
+        if (sessionCtx.getMqttVersion() == MqttVersion.MQTT_5) {
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createSubAck(packetId, grantedQosList, MqttProperties.NO_PROPERTIES));
+        } else {
+            sessionCtx.getChannel().writeAndFlush(
+                    messageGenerator.createSubAck(packetId, grantedQosList));
+        }
     }
 
     private void processUnsubscribe(MqttUnsubscribeMsg msg) {
