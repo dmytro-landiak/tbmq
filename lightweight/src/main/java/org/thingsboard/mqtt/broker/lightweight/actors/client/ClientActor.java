@@ -256,7 +256,8 @@ public class ClientActor extends AbstractTbActor {
         }
 
         sessionCtx.setState(SessionState.CONNECTED);
-        log.info("[{}] Client connected (cleanSession={}, keepAlive={}s)", clientId, cleanSession, keepAliveFinal);
+        log.info("[{}] Client connected (cleanSession=true{}, keepAlive={}s)",
+                clientId, cleanSession ? "" : " [client requested false]", keepAliveFinal);
     }
 
     private void processDisconnect(TbActorMsg msg) {
