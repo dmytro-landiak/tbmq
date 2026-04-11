@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.thingsboard.mqtt.broker.lightweight.util.MqttPropertiesUtil;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,7 +60,7 @@ public class DefaultRetainedMsgService implements RetainedMsgService {
 
     @Override
     public List<RetainedMsg> getRetainedMessages(String topicFilter) {
-        List<RetainedMsg> results = retainMsgTrie.get(topicFilter);
+        List<RetainedMsg> results = new ArrayList<>(retainMsgTrie.get(topicFilter));
         // Filter expired retained messages and remove them from the trie (lazy cleanup)
         results.removeIf(msg -> {
             if (MqttPropertiesUtil.isRetainedMsgExpired(msg.getCreatedTime(), msg.getProperties())) {
