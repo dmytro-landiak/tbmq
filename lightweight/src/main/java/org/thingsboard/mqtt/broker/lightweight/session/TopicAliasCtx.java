@@ -177,7 +177,10 @@ public class TopicAliasCtx {
         if (topicAlias == 0) {
             throw new RuntimeException("Topic Alias is zero — protocol error");
         }
-        if (inboundMax > 0 && topicAlias > inboundMax) {
+        if (inboundMax == 0) {
+            throw new RuntimeException("Topic aliases are disabled (TopicAliasMaximum=0) — protocol error");
+        }
+        if (topicAlias > inboundMax) {
             throw new RuntimeException("Topic Alias " + topicAlias + " exceeds inbound maximum " + inboundMax);
         }
     }
