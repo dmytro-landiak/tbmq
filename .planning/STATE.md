@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: verifying
 stopped_at: Phase 7 context gathered
-last_updated: "2026-04-11T16:04:40.540Z"
-last_activity: 2026-04-11
+last_updated: "2026-04-16T12:50:49.178Z"
+last_activity: 2026-04-16
 progress:
   total_phases: 7
   completed_phases: 7
@@ -18,17 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-08)
+See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** A fully functional MQTT broker that starts with a single `docker run` command and requires zero external infrastructure
-**Current focus:** Phase 05 — websocket-transport
+**Current focus:** Milestone v1.0 complete — all 7 phases finished
 
 ## Current Position
 
 Phase: 07
 Plan: Not started
 Status: Phase complete — ready for verification
-Last activity: 2026-04-11
+Last activity: 2026-04-16
 
 Progress: [████████████████████] 3/3 plans (100%)
 
@@ -36,7 +36,7 @@ Progress: [████████████████████] 3/3 pla
 
 **Velocity:**
 
-- Total plans completed: 5
+- Total plans completed: 7
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -138,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T14:59:31.320Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-hardening-and-docker-release/07-CONTEXT.md
+Last session: 2026-04-16
+Stopped at: Phase 7 complete, milestone v1.0 ready for archival
+Resume file: None
