@@ -13,7 +13,7 @@ last_followup_pass: 2026-04-30
 
 Sweep of every actionable item that didn't require human judgment, hardware, credentials, or external services.
 
-### Done — 4 items
+### Done — 5 items
 
 | # | Item | Commit | Notes |
 |---|------|--------|-------|
@@ -21,6 +21,7 @@ Sweep of every actionable item that didn't require human judgment, hardware, cre
 | 2 | ROADMAP.md drift (Phase 7 row → `2/2 Complete (2026-04-12)`; "Phases" header line ticked; plan-count line normalised) | `4c039b49e` | Same quick task as item 1 |
 | 3 | `BrokerMetricsService.java` Apache 2.0 license header added | `0d906f4e9` | Quick task `260430-myq` (T1) — `mvn -o clean compile` BUILD SUCCESS |
 | 4 | `SoakTest.java:238` Python-style `{:.0f}` → SLF4J `{}` with `(long)` cast | `46143e19d` | Quick task `260430-myq` (T2) — `mvn -o test-compile` BUILD SUCCESS |
+| 5 | Item 10 — `DefaultMsgDispatcherService` `dispatch()`/`stop()` race window: drain orphaned queue messages on shutdown so silent loss becomes counted loss on `mqtt.dispatch.dropped.total` | `0029a4377` (fix), `7f647074f` (spec+plan) | TDD via brainstorming → writing-plans → executing-plans; design at `docs/superpowers/specs/2026-04-30-dispatcher-race-window-design.md`; `mvn -f lightweight/pom.xml -o test` BUILD SUCCESS (154/154 pass) |
 
 ### Stale finding corrected — 1 item
 
@@ -31,7 +32,7 @@ Sweep of every actionable item that didn't require human judgment, hardware, cre
 - **SC-4 docker-logs banner visual check — DONE.** User confirmed the `STARTUP WARNINGS` banner is visible in real `docker logs` output. The Phase 7 success criterion 4 is signed off.
 - **SC-2 24-hour soak — CLOSED as OPTIONAL.** User decision: drop the 24-hour soak as a release gate. Rationale aligns with the original audit note ("Not strictly blocking — test correctness is duration-independent"). The 1-minute smoke run on 2026-04-12 (140 008 messages, 0 ByteBuf leaks under PARANOID, heap stable) is the canonical Phase 7 SC-2 evidence.
 
-### Skipped — 8 items (each requires user input the autonomous pass cannot supply)
+### Skipped — 7 items (each requires user input the autonomous pass cannot supply)
 
 | Item | Reason for skip |
 |------|-----------------|
@@ -42,7 +43,6 @@ Sweep of every actionable item that didn't require human judgment, hardware, cre
 | CI workflow `mvn -f lightweight/pom.xml verify` on PRs | Needs user decision on workflow file location and CI conventions |
 | Multi-arch Docker push to `thingsboard/tbmq-lightweight:1.0.0` and `:latest` | Requires Docker Hub registry credentials |
 | Item 9 — `ClientActor.java:203-215` displaced-actor leak | Architectural change — needs design judgment, not a typo fix |
-| Item 10 — `DefaultMsgDispatcherService.dispatch()` race window | STATUS.md explicitly notes "production-acceptable"; structural change needs decision |
 
 ### What's left for the user
 
@@ -57,7 +57,7 @@ Sweep of every actionable item that didn't require human judgment, hardware, cre
 
 **Optional cleanup** (post-1.0.0):
 6. Item 9 (ClientActor displaced-actor leak) — needs an explicit `stop()` design
-7. Item 10 (dispatch race window) — production-acceptable, only revisit if benchmarks show a problem
+7. ~~Item 10 (dispatch race window) — production-acceptable, only revisit if benchmarks show a problem~~ — **Done 2026-04-30** (`0029a4377`)
 
 ---
 
@@ -131,7 +131,7 @@ Mapping the brief's "Release 1 — Core" feature list to shipped code, requireme
 ### Known technical debt that survived hardening
 
 9. **`ClientActor.java:203-215` (Phase 7 CR-01 fix).** Displaced actor on session takeover does not get explicitly stopped; QoS state maps leak until GC. Mitigation present but not a clean stop. Material under high-reconnect load.
-10. **`DefaultMsgDispatcherService.dispatch()` race window.** Apr 30 quick fix established cooperative shutdown via the `running` flag, but `dispatch()` still calls `queue.offer()` before re-checking the queue isn't being drained. Production-acceptable; tests cover the happy path.
+10. ~~**`DefaultMsgDispatcherService.dispatch()` race window.** Apr 30 quick fix established cooperative shutdown via the `running` flag, but `dispatch()` still calls `queue.offer()` before re-checking the queue isn't being drained.~~ — **Done 2026-04-30** (`0029a4377`). Practically-closed via orphan drain at the end of `stop()`: messages that land in the queue between consumer-exit and stop()-return are now counted on `mqtt.dispatch.dropped.total` instead of being silently lost. A nanosecond-scale residual remains (a `dispatch()` call paused for the entire duration of `stop()` could land an offer post-drain); the documented hard-correct upgrade path is a `ReadWriteLock` on `dispatch()` / `stop()` if benchmarks ever require it.
 11. ~~**`BrokerMetricsService.java:1` — missing Apache 2.0 license header.** Trivial; flagged as Info in `07-VERIFICATION.md`.~~ — **Done 2026-04-30** (`0d906f4e9`).
 
 ## 5. Resolved vs. still-open decisions
@@ -189,6 +189,7 @@ Explicitly out of scope for R1, scheduled for R2+. None of these are present in 
 - [x] ~~Run the 24-hour soak with `mvn test -Dgroups=soak -Dsoak.duration.minutes=1440`~~ _(closed 2026-04-30 as OPTIONAL — 1-minute smoke is canonical SC-2 evidence)_
 - [x] Sweep REQUIREMENTS.md — tick PROTO-08/09/10, OPS-01; update Traceability table _(done 2026-04-30, `4c039b49e`)_
 - [x] Reconcile ROADMAP.md Phase 7 progress row to `2/2 Complete` _(done 2026-04-30, `4c039b49e`)_
+- [x] ~~Item 10 — `DefaultMsgDispatcherService` `dispatch()` / `stop()` race window~~ _(done 2026-04-30, `0029a4377` — orphan drain in `stop()` converts silent loss to counted loss on `mqtt.dispatch.dropped.total`; spec & plan in `docs/superpowers/`)_
 - [ ] Update STATE.md `status` from `verifying` to `complete` (kept `verifying` until SC-2/SC-3/SC-4 are signed off)
 - [ ] Decide repository strategy: extract `lightweight/` to its own repo (per brief), or formally amend PROJECT.md to record "in-tree sibling project" as the chosen variant
 - [ ] Add a CI workflow that runs `mvn -f lightweight/pom.xml verify` on PRs
@@ -197,4 +198,4 @@ Explicitly out of scope for R1, scheduled for R2+. None of these are present in 
 
 ---
 
-*Generated 2026-04-30 by read-only audit of `tbmq-lightweight-brief.md` against `.planning/` and `lightweight/`. Original audit was read-only; the 2026-04-30 follow-up pass (Section 0) committed two atomic doc commits and two atomic code commits — see commits `4c039b49e`, `0d906f4e9`, `46143e19d`.*
+*Generated 2026-04-30 by read-only audit of `tbmq-lightweight-brief.md` against `.planning/` and `lightweight/`. Original audit was read-only; the 2026-04-30 follow-up pass (Section 0) committed two atomic doc commits, two atomic code commits, and a code+test fix closing item 10 — see commits `4c039b49e`, `0d906f4e9`, `46143e19d`, `0029a4377`, `7f647074f`.*
