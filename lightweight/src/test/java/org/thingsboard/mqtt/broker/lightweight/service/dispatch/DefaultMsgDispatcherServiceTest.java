@@ -150,6 +150,29 @@ class DefaultMsgDispatcherServiceTest {
                 .isLessThan(1000L);
     }
 
+    @Test
+    void testStop_drainsOrphanedMessagesAndCountsAsDropped() {
+        // Pre-conditions (from setUp): consumer pool is stopped, running=true, queue empty,
+        // capacity=2. Dispatching here lands messages that no consumer will ever process —
+        // that's exactly the silent-loss scenario the fix is meant to convert into a counted
+        // loss.
+        dispatcher.dispatch(buildMsg("orphan/1"));
+        dispatcher.dispatch(buildMsg("orphan/2"));
+
+        assertThat(testQueue).hasSize(2);
+        assertThat(meterRegistry.counter("mqtt.dispatch.dropped.total").count())
+                .as("dispatch() must not increment the dropped counter while offer() succeeds")
+                .isEqualTo(0.0);
+
+        // stop() must drain orphaned queue contents and account for them on the dropped meter.
+        dispatcher.stop();
+
+        assertThat(testQueue).isEmpty();
+        assertThat(meterRegistry.counter("mqtt.dispatch.dropped.total").count())
+                .as("stop() must count orphaned queue contents on the dropped meter")
+                .isEqualTo(2.0);
+    }
+
     private PublishMsg buildMsg(String topic) {
         return PublishMsg.builder()
                 .topicName(topic)

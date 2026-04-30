@@ -123,8 +123,7 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
         consumerPool.shutdown();
         try {
             if (!consumerPool.awaitTermination(5, TimeUnit.SECONDS)) {
-                log.warn("Dispatch consumer pool did not drain within 5s — {} messages may be lost",
-                        queue.size());
+                log.warn("Dispatch consumer pool did not drain within 5s — forcing shutdown");
                 consumerPool.shutdownNow();
                 consumerPool.awaitTermination(2, TimeUnit.SECONDS);
             }
@@ -132,6 +131,16 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
             Thread.currentThread().interrupt();
             consumerPool.shutdownNow();
         }
+
+        // Drain any messages that landed in the dispatch()/stop() race window and account
+        // for them on the dropped-message counter so they aren't a silent loss.
+        List<PublishMsg> orphans = new ArrayList<>();
+        queue.drainTo(orphans);
+        if (!orphans.isEmpty()) {
+            droppedMsgsCounter.increment(orphans.size());
+            log.warn("Dropped {} orphaned messages during dispatcher shutdown", orphans.size());
+        }
+
         log.info("Message dispatcher stopped");
     }
 
