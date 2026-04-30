@@ -26,14 +26,17 @@ Sweep of every actionable item that didn't require human judgment, hardware, cre
 
 - **Item 8a** (`StartupWarningService.java:79` "always emits the retained-in-memory warning so the `if (!warnings.isEmpty())` guard is dead code") is **stale**. Commit `5d25fbf3d` (WR-04, "separate R1 limitation notice from misconfiguration warning banner") moved the retained-in-memory line to `log.info(...)` at line 76, distinct from the WARN banner that is correctly guarded at line 79. No code change needed.
 
-### Skipped — 10 items (each requires user input the autonomous pass cannot supply)
+### User-confirmed since the autonomous pass — 2 items (2026-04-30)
+
+- **SC-4 docker-logs banner visual check — DONE.** User confirmed the `STARTUP WARNINGS` banner is visible in real `docker logs` output. The Phase 7 success criterion 4 is signed off.
+- **SC-2 24-hour soak — CLOSED as OPTIONAL.** User decision: drop the 24-hour soak as a release gate. Rationale aligns with the original audit note ("Not strictly blocking — test correctness is duration-independent"). The 1-minute smoke run on 2026-04-12 (140 008 messages, 0 ByteBuf leaks under PARANOID, heap stable) is the canonical Phase 7 SC-2 evidence.
+
+### Skipped — 8 items (each requires user input the autonomous pass cannot supply)
 
 | Item | Reason for skip |
 |------|-----------------|
 | Phase 7 SC-3 — ARM64 hardware run | Requires physical ARM64 device (Pi/Graviton/M-series Mac); script `scripts/arm64-validate.sh` is ready |
-| Phase 7 SC-4 — docker-logs banner visual check | Requires running container + human visual inspection |
-| Phase 7 SC-2 — 24-hour soak | Out of scope per follow-up brief (no 24h soak) |
-| STATE.md `status: verifying` → `complete` | Should remain `verifying` until SC-2/SC-3/SC-4 are signed off; not a drift issue |
+| STATE.md `status: verifying` → `complete` | Should remain `verifying` until SC-3 is signed off |
 | Repository extraction (Option A separate repo) | Needs user go/no-go decision; PROJECT.md correctly records as Pending |
 | `lightweight/README.md` (quick-start, limitations, decision matrix vs. standard TBMQ) | Needs product judgment on user-facing content |
 | CI workflow `mvn -f lightweight/pom.xml verify` on PRs | Needs user decision on workflow file location and CI conventions |
@@ -44,19 +47,17 @@ Sweep of every actionable item that didn't require human judgment, hardware, cre
 ### What's left for the user
 
 **Pre-release gates** (block public 1.0.0 tag):
-1. Run `scripts/arm64-validate.sh` on real ARM64 hardware (SC-3)
-2. Visually confirm `STARTUP WARNINGS` banner in `docker logs` during the same run (SC-4)
-3. Run 24-hour soak (`mvn test -Dgroups=soak -Dsoak.duration.minutes=1440`) — optional but flagged in brief
+1. Run `scripts/arm64-validate.sh` on real ARM64 hardware (SC-3) — the only remaining Phase 7 success criterion
 
 **Product/tooling decisions** (none block release strictly, but recommended before Phase 8):
-4. Decide repository strategy — extract `lightweight/` to its own repo (per brief Option A) or amend PROJECT.md to record "in-tree sibling project" as the chosen variant
-5. Authorise / produce `lightweight/README.md`
-6. Authorise / wire CI workflow for the lightweight Maven project
-7. Provide Docker Hub credentials and authorise `docker buildx push` for `1.0.0` and `:latest`
+2. Decide repository strategy — extract `lightweight/` to its own repo (per brief Option A) or amend PROJECT.md to record "in-tree sibling project" as the chosen variant
+3. Authorise / produce `lightweight/README.md`
+4. Authorise / wire CI workflow for the lightweight Maven project
+5. Provide Docker Hub credentials and authorise `docker buildx push` for `1.0.0` and `:latest`
 
 **Optional cleanup** (post-1.0.0):
-8. Item 9 (ClientActor displaced-actor leak) — needs an explicit `stop()` design
-9. Item 10 (dispatch race window) — production-acceptable, only revisit if benchmarks show a problem
+6. Item 9 (ClientActor displaced-actor leak) — needs an explicit `stop()` design
+7. Item 10 (dispatch race window) — production-acceptable, only revisit if benchmarks show a problem
 
 ---
 
@@ -111,8 +112,8 @@ Mapping the brief's "Release 1 — Core" feature list to shipped code, requireme
 ### Pre-release gates (must finish before "shipped")
 
 1. **Phase 7 SC-3 — ARM64 hardware validation.** `scripts/arm64-validate.sh` exists, is executable, and has valid bash syntax. **Nobody has run it on a real ARM64 device.** Roadmap explicitly excludes QEMU emulation. This is the single largest open R1 item. Owner action: run on a Raspberry Pi 4/5, AWS Graviton, or M-series Mac with Docker Desktop.
-2. **Phase 7 SC-4 — Docker logs banner visibility.** `StartupWarningService` is wired and unit-tested, but the WARN-level banner has only been seen in test output, never in real `docker logs`. Quick visual check during the ARM64 run.
-3. **Phase 7 SC-2 — full 24-hour soak.** Infrastructure is complete; only a 1-minute smoke run was executed (140 008 messages, 0 leaks, heap stable). Owner action: schedule the 24-hour run before public release. Not strictly blocking (test correctness is duration-independent) but flagged in the brief as a release gate.
+2. ~~**Phase 7 SC-4 — Docker logs banner visibility.** `StartupWarningService` is wired and unit-tested, but the WARN-level banner has only been seen in test output, never in real `docker logs`. Quick visual check during the ARM64 run.~~ — **Done 2026-04-30** (user-confirmed: banner observed in real `docker logs`).
+3. ~~**Phase 7 SC-2 — full 24-hour soak.** Infrastructure is complete; only a 1-minute smoke run was executed (140 008 messages, 0 leaks, heap stable). Owner action: schedule the 24-hour run before public release. Not strictly blocking (test correctness is duration-independent) but flagged in the brief as a release gate.~~ — **Closed 2026-04-30 as OPTIONAL** (user decision). The 1-minute smoke run on 2026-04-12 (140 008 msgs, 0 ByteBuf leaks under PARANOID, heap stable) is the canonical SC-2 evidence; correctness is duration-independent.
 
 ### Documentation drift to fix
 
@@ -184,8 +185,8 @@ Explicitly out of scope for R1, scheduled for R2+. None of these are present in 
 ### Concrete follow-up checklist
 
 - [ ] Run `scripts/arm64-validate.sh` on real ARM64 hardware (Phase 7 SC-3)
-- [ ] Visually confirm the `STARTUP WARNINGS` banner in real `docker logs` (Phase 7 SC-4)
-- [ ] Run the 24-hour soak with `mvn test -Dgroups=soak -Dsoak.duration.minutes=1440`
+- [x] Visually confirm the `STARTUP WARNINGS` banner in real `docker logs` (Phase 7 SC-4) _(user-confirmed 2026-04-30)_
+- [x] ~~Run the 24-hour soak with `mvn test -Dgroups=soak -Dsoak.duration.minutes=1440`~~ _(closed 2026-04-30 as OPTIONAL — 1-minute smoke is canonical SC-2 evidence)_
 - [x] Sweep REQUIREMENTS.md — tick PROTO-08/09/10, OPS-01; update Traceability table _(done 2026-04-30, `4c039b49e`)_
 - [x] Reconcile ROADMAP.md Phase 7 progress row to `2/2 Complete` _(done 2026-04-30, `4c039b49e`)_
 - [ ] Update STATE.md `status` from `verifying` to `complete` (kept `verifying` until SC-2/SC-3/SC-4 are signed off)
