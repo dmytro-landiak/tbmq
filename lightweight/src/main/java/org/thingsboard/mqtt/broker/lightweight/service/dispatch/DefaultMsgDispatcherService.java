@@ -148,8 +148,16 @@ public class DefaultMsgDispatcherService implements MsgDispatcherService, SmartL
     private void consumeLoop() {
         while (!Thread.currentThread().isInterrupted()) {
             try {
-                PublishMsg msg = queue.take();
-                deliverToSubscribers(msg);
+                // While running, block briefly so we periodically observe the running flag.
+                // Once running=false, drain remaining messages without blocking, then exit.
+                PublishMsg msg = running
+                        ? queue.poll(100, TimeUnit.MILLISECONDS)
+                        : queue.poll();
+                if (msg != null) {
+                    deliverToSubscribers(msg);
+                } else if (!running) {
+                    break;
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;

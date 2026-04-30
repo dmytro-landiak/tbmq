@@ -73,6 +73,10 @@ class DefaultMsgDispatcherServiceTest {
         dispatcher.start();
         // stop() shuts down consumer threads so the queue won't drain during tests
         dispatcher.stop();
+        // Re-enable running flag so dispatch() accepts messages (consumer pool is shut down,
+        // so the queue won't drain — but dispatch() guards against !running which would
+        // otherwise drop test messages at the entry point).
+        ReflectionTestUtils.setField(dispatcher, "running", true);
     }
 
     @AfterEach
