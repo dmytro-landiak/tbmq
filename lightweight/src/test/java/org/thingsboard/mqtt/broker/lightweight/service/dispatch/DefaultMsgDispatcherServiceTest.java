@@ -123,6 +123,29 @@ class DefaultMsgDispatcherServiceTest {
         assertThat(completed.get()).isTrue(); // must complete without blocking
     }
 
+    @Test
+    void testStop_returnsQuicklyWhenQueueEmpty() {
+        // Build a fresh dispatcher with live consumer threads — do NOT pre-stop it.
+        SimpleMeterRegistry localRegistry = new SimpleMeterRegistry();
+        LinkedBlockingQueue<PublishMsg> localQueue = new LinkedBlockingQueue<>(16);
+        when(queueFactory.createQueue()).thenReturn(localQueue);
+
+        DefaultMsgDispatcherService localDispatcher =
+                new DefaultMsgDispatcherService(queueFactory, subscriptionRegistry, actorSystem, localRegistry);
+        ReflectionTestUtils.setField(localDispatcher, "consumerThreads", 2);
+        localDispatcher.start();
+
+        // With consumers idle on an empty queue, stop() must return well under the 5s
+        // awaitTermination ceiling. Generous bound (1s) leaves CI headroom; expected ~100ms.
+        long startNanos = System.nanoTime();
+        localDispatcher.stop();
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+
+        assertThat(elapsedMs)
+                .as("stop() should return quickly when queue is empty (saw %d ms)", elapsedMs)
+                .isLessThan(1000L);
+    }
+
     private PublishMsg buildMsg(String topic) {
         return PublishMsg.builder()
                 .topicName(topic)
