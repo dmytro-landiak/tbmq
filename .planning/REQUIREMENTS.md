@@ -16,9 +16,9 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 - [x] **PROTO-05**: Broker stores retained messages in memory and delivers them to new subscribers on matching topics
 - [x] **PROTO-06**: Broker publishes Last Will and Testament message when a client disconnects ungracefully or exceeds keep-alive
 - [x] **PROTO-07**: Broker supports Clean Session flag — sessions are in-memory only and not persisted across broker restarts
-- [ ] **PROTO-08**: Broker accepts MQTT 5.0 CONNECT packets and negotiates protocol version with 3.1.1 clients
-- [ ] **PROTO-09**: Broker handles MQTT 5.0 properties: session expiry interval, user properties, reason codes, and topic aliases
-- [ ] **PROTO-10**: Broker supports MQTT 5.0 shared subscriptions ($share/group/topic) for load-balanced message delivery
+- [x] **PROTO-08**: Broker accepts MQTT 5.0 CONNECT packets and negotiates protocol version with 3.1.1 clients
+- [x] **PROTO-09**: Broker handles MQTT 5.0 properties: session expiry interval, user properties, reason codes, and topic aliases
+- [x] **PROTO-10**: Broker supports MQTT 5.0 shared subscriptions ($share/group/topic) for load-balanced message delivery
 - [x] **PROTO-11**: Broker correctly handles client takeover (new connection with same client ID replaces existing session) including LWT behavior
 
 ### Transport
@@ -46,7 +46,7 @@ Requirements for initial release (R1). Each maps to roadmap phases.
 
 ### Operations
 
-- [ ] **OPS-01**: Broker exposes Prometheus-compatible `/metrics` endpoint with connection counts, message rates, and error counters
+- [x] **OPS-01**: Broker exposes Prometheus-compatible `/metrics` endpoint with connection counts, message rates, and error counters
 - [x] **OPS-02**: Broker ships as a single Docker image that starts with `docker run -p 1883:1883 thingsboard/tbmq-lightweight` with no external dependencies
 - [x] **OPS-03**: Docker image supports both linux/amd64 and linux/arm64 architectures
 - [x] **OPS-04**: Broker persists RocksDB data to a volume-mountable path so configuration survives container restarts
@@ -121,10 +121,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRAN-03 | Phase 5 | Complete |
 | TRAN-04 | Phase 5 | Complete |
 | TRAN-05 | Phase 5 | Complete |
-| PROTO-08 | Phase 6 | Pending |
-| PROTO-09 | Phase 6 | Pending |
-| PROTO-10 | Phase 6 | Pending |
-| OPS-01 | Phase 7 | Pending |
+| PROTO-08 | Phase 6 | Complete |
+| PROTO-09 | Phase 6 | Complete |
+| PROTO-10 | Phase 6 | Complete |
+| OPS-01 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total
@@ -133,4 +133,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-02*
-*Last updated: 2026-04-02 after roadmap creation — all 31 requirements mapped*
+*Last updated: 2026-04-30 — ticked PROTO-08/09/10 (Phase 6) and OPS-01 (Phase 7) after verification*

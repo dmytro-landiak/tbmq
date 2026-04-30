@@ -12,7 +12,7 @@ TBMQ Lightweight is built bottom-up: infrastructure first, then protocol correct
 - [x] **Phase 4: Security** - TLS termination, username/password auth and X.509 mTLS backed by RocksDB, topic-level ACL, secure-by-default configuration (completed 2026-04-09)
 - [x] **Phase 5: WebSocket Transport** - MQTT over ws:// and wss://, correct subprotocol header handling for browser client compatibility (completed 2026-04-09)
 - [x] **Phase 6: MQTT 5.0** - MQTT 5.0 session expiry, user properties, reason codes, topic aliases, shared subscriptions, and protocol version negotiation (completed 2026-04-11)
-- [ ] **Phase 7: Hardening and Docker Release** - Soak tests, memory budget validation, startup warnings, ARM64 validation on real hardware, Docker image release
+- [x] **Phase 7: Hardening and Docker Release** - Soak tests, memory budget validation, startup warnings, ARM64 validation on real hardware, Docker image release (completed 2026-04-12; SC-3 ARM64 hardware run + SC-4 docker-logs banner + SC-2 24h soak pending human verification)
 
 ## Phase Details
 
@@ -116,7 +116,7 @@ Plans:
   2. A 24-hour soak test with simulated production load shows zero Netty ByteBuf leak warnings (`PARANOID` detection) and stable container RSS (no unbounded growth)
   3. The Docker image runs correctly on a real ARM64 device (not QEMU emulation); the broker starts, accepts connections, and RocksDB persists data
   4. The broker logs a clear startup warning when TLS is not configured, when `/data/rocksdb` is not volume-mounted, and when retained messages are in-memory only
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 07-01-PLAN.md — Prometheus metrics completeness + startup warning service + integration tests
 - [x] 07-02-PLAN.md — Soak test + ARM64 validation script + human verification checkpoint
@@ -134,4 +134,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. Security | 3/3 | Complete   | 2026-04-09 |
 | 5. WebSocket Transport | 2/2 | Complete | 2026-04-09 |
 | 6. MQTT 5.0 | 3/3 | Complete | 2026-04-11 |
-| 7. Hardening and Docker Release | 0/2 | In Progress | - |
+| 7. Hardening and Docker Release | 2/2 | Complete | 2026-04-12 |
