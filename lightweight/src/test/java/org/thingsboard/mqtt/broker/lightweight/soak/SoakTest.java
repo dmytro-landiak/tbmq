@@ -235,8 +235,8 @@ class SoakTest {
             LoggerFactory.getLogger(SoakTest.class).info("Sampling heap baseline...");
             double baselineHeap = sampleHeapAverage(5, 20_000);
             LoggerFactory.getLogger(SoakTest.class).info(
-                    "Heap baseline established: {:.0f} bytes ({} MB)",
-                    baselineHeap, (long) (baselineHeap / 1_048_576));
+                    "Heap baseline established: {} bytes ({} MB)",
+                    (long) baselineHeap, (long) (baselineHeap / 1_048_576));
 
             // =====================================================================
             // Phase 3: Stable phase — continue publishing for remaining duration
