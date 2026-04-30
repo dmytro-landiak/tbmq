@@ -4,9 +4,61 @@ generator: brief-vs-implementation audit (read-only)
 brief_source: tbmq-lightweight-brief.md
 project_planning: .planning/
 codebase_under_audit: lightweight/
+last_followup_pass: 2026-04-30
 ---
 
 # TBMQ Lightweight — Status
+
+## 0. Follow-up pass (2026-04-30)
+
+Sweep of every actionable item that didn't require human judgment, hardware, credentials, or external services.
+
+### Done — 4 items
+
+| # | Item | Commit | Notes |
+|---|------|--------|-------|
+| 1 | REQUIREMENTS.md drift (PROTO-08/09/10, OPS-01 ticked + Traceability rows → Complete) | `4c039b49e` | Quick task `260430-mwd` |
+| 2 | ROADMAP.md drift (Phase 7 row → `2/2 Complete (2026-04-12)`; "Phases" header line ticked; plan-count line normalised) | `4c039b49e` | Same quick task as item 1 |
+| 3 | `BrokerMetricsService.java` Apache 2.0 license header added | `0d906f4e9` | Quick task `260430-myq` (T1) — `mvn -o clean compile` BUILD SUCCESS |
+| 4 | `SoakTest.java:238` Python-style `{:.0f}` → SLF4J `{}` with `(long)` cast | `46143e19d` | Quick task `260430-myq` (T2) — `mvn -o test-compile` BUILD SUCCESS |
+
+### Stale finding corrected — 1 item
+
+- **Item 8a** (`StartupWarningService.java:79` "always emits the retained-in-memory warning so the `if (!warnings.isEmpty())` guard is dead code") is **stale**. Commit `5d25fbf3d` (WR-04, "separate R1 limitation notice from misconfiguration warning banner") moved the retained-in-memory line to `log.info(...)` at line 76, distinct from the WARN banner that is correctly guarded at line 79. No code change needed.
+
+### Skipped — 10 items (each requires user input the autonomous pass cannot supply)
+
+| Item | Reason for skip |
+|------|-----------------|
+| Phase 7 SC-3 — ARM64 hardware run | Requires physical ARM64 device (Pi/Graviton/M-series Mac); script `scripts/arm64-validate.sh` is ready |
+| Phase 7 SC-4 — docker-logs banner visual check | Requires running container + human visual inspection |
+| Phase 7 SC-2 — 24-hour soak | Out of scope per follow-up brief (no 24h soak) |
+| STATE.md `status: verifying` → `complete` | Should remain `verifying` until SC-2/SC-3/SC-4 are signed off; not a drift issue |
+| Repository extraction (Option A separate repo) | Needs user go/no-go decision; PROJECT.md correctly records as Pending |
+| `lightweight/README.md` (quick-start, limitations, decision matrix vs. standard TBMQ) | Needs product judgment on user-facing content |
+| CI workflow `mvn -f lightweight/pom.xml verify` on PRs | Needs user decision on workflow file location and CI conventions |
+| Multi-arch Docker push to `thingsboard/tbmq-lightweight:1.0.0` and `:latest` | Requires Docker Hub registry credentials |
+| Item 9 — `ClientActor.java:203-215` displaced-actor leak | Architectural change — needs design judgment, not a typo fix |
+| Item 10 — `DefaultMsgDispatcherService.dispatch()` race window | STATUS.md explicitly notes "production-acceptable"; structural change needs decision |
+
+### What's left for the user
+
+**Pre-release gates** (block public 1.0.0 tag):
+1. Run `scripts/arm64-validate.sh` on real ARM64 hardware (SC-3)
+2. Visually confirm `STARTUP WARNINGS` banner in `docker logs` during the same run (SC-4)
+3. Run 24-hour soak (`mvn test -Dgroups=soak -Dsoak.duration.minutes=1440`) — optional but flagged in brief
+
+**Product/tooling decisions** (none block release strictly, but recommended before Phase 8):
+4. Decide repository strategy — extract `lightweight/` to its own repo (per brief Option A) or amend PROJECT.md to record "in-tree sibling project" as the chosen variant
+5. Authorise / produce `lightweight/README.md`
+6. Authorise / wire CI workflow for the lightweight Maven project
+7. Provide Docker Hub credentials and authorise `docker buildx push` for `1.0.0` and `:latest`
+
+**Optional cleanup** (post-1.0.0):
+8. Item 9 (ClientActor displaced-actor leak) — needs an explicit `stop()` design
+9. Item 10 (dispatch race window) — production-acceptable, only revisit if benchmarks show a problem
+
+---
 
 ## 1. Executive summary
 
@@ -64,20 +116,22 @@ Mapping the brief's "Release 1 — Core" feature list to shipped code, requireme
 
 ### Documentation drift to fix
 
-4. **REQUIREMENTS.md is out of date.** PROTO-08, PROTO-09, PROTO-10, OPS-01 are still `[ ]` despite VERIFICATION.md marking them SATISFIED. The Traceability table at the bottom has the same drift.
-5. **ROADMAP.md progress-table contradiction.** Phase 7 row shows `0/2 In Progress`, but plans 07-01 and 07-02 are listed `[x]` in the same file. PROJECT.md correctly says complete; ROADMAP.md table didn't get the final tick.
-6. **STATE.md `status: verifying`.** Should be `complete` for milestone v1.0 archival, or stay at `verifying` until SC-3 + SC-4 are signed off.
+4. ~~**REQUIREMENTS.md is out of date.** PROTO-08, PROTO-09, PROTO-10, OPS-01 are still `[ ]` despite VERIFICATION.md marking them SATISFIED. The Traceability table at the bottom has the same drift.~~ — **Done 2026-04-30** (`4c039b49e`).
+5. ~~**ROADMAP.md progress-table contradiction.** Phase 7 row shows `0/2 In Progress`, but plans 07-01 and 07-02 are listed `[x]` in the same file. PROJECT.md correctly says complete; ROADMAP.md table didn't get the final tick.~~ — **Done 2026-04-30** (`4c039b49e`).
+6. **STATE.md `status: verifying`.** Should be `complete` for milestone v1.0 archival, or stay at `verifying` until SC-3 + SC-4 are signed off. — **Kept at `verifying`** until SC-2/SC-3/SC-4 are signed off.
 
 ### Suggested next phases (post-R1)
 
 7. **Phase 8 (suggested) — release packaging.** Build & push multi-arch Docker images to Docker Hub (`thingsboard/tbmq-lightweight:1.0.0` + `:latest`), publish a public README, write a quick-start doc. Depends on (1)–(3) being green. Rough scope: 1-2 days.
-8. **Phase 9 (suggested) — observability tightening.** Address the Phase 7 anti-patterns: `StartupWarningService.java:79` always emits the "retained in-memory" warning so the `if (!warnings.isEmpty())` guard is dead code (alert fatigue); `SoakTest.java:239` has a Python-style `{:.0f}` SLF4J placeholder. Rough scope: half a day.
+8. **Phase 9 (suggested) — observability tightening.** Phase 7 anti-patterns:
+   - ~~`StartupWarningService.java:79` always emits the "retained in-memory" warning so the `if (!warnings.isEmpty())` guard is dead code (alert fatigue)~~ — **Stale claim.** WR-04 (`5d25fbf3d`) already moved the retained-in-memory line to `log.info(...)` at line 76; the WARN banner at line 79 is correctly guarded.
+   - ~~`SoakTest.java:239` has a Python-style `{:.0f}` SLF4J placeholder~~ — **Done 2026-04-30** (`46143e19d`).
 
 ### Known technical debt that survived hardening
 
 9. **`ClientActor.java:203-215` (Phase 7 CR-01 fix).** Displaced actor on session takeover does not get explicitly stopped; QoS state maps leak until GC. Mitigation present but not a clean stop. Material under high-reconnect load.
 10. **`DefaultMsgDispatcherService.dispatch()` race window.** Apr 30 quick fix established cooperative shutdown via the `running` flag, but `dispatch()` still calls `queue.offer()` before re-checking the queue isn't being drained. Production-acceptable; tests cover the happy path.
-11. **`BrokerMetricsService.java:1` — missing Apache 2.0 license header.** Trivial; flagged as Info in `07-VERIFICATION.md`.
+11. ~~**`BrokerMetricsService.java:1` — missing Apache 2.0 license header.** Trivial; flagged as Info in `07-VERIFICATION.md`.~~ — **Done 2026-04-30** (`0d906f4e9`).
 
 ## 5. Resolved vs. still-open decisions
 
@@ -132,9 +186,9 @@ Explicitly out of scope for R1, scheduled for R2+. None of these are present in 
 - [ ] Run `scripts/arm64-validate.sh` on real ARM64 hardware (Phase 7 SC-3)
 - [ ] Visually confirm the `STARTUP WARNINGS` banner in real `docker logs` (Phase 7 SC-4)
 - [ ] Run the 24-hour soak with `mvn test -Dgroups=soak -Dsoak.duration.minutes=1440`
-- [ ] Sweep REQUIREMENTS.md — tick PROTO-08/09/10, OPS-01; update Traceability table
-- [ ] Reconcile ROADMAP.md Phase 7 progress row to `2/2 Complete`
-- [ ] Update STATE.md `status` from `verifying` to `complete` (or keep `verifying` until the three SC-3/SC-4/24h items above are done)
+- [x] Sweep REQUIREMENTS.md — tick PROTO-08/09/10, OPS-01; update Traceability table _(done 2026-04-30, `4c039b49e`)_
+- [x] Reconcile ROADMAP.md Phase 7 progress row to `2/2 Complete` _(done 2026-04-30, `4c039b49e`)_
+- [ ] Update STATE.md `status` from `verifying` to `complete` (kept `verifying` until SC-2/SC-3/SC-4 are signed off)
 - [ ] Decide repository strategy: extract `lightweight/` to its own repo (per brief), or formally amend PROJECT.md to record "in-tree sibling project" as the chosen variant
 - [ ] Add a CI workflow that runs `mvn -f lightweight/pom.xml verify` on PRs
 - [ ] Write a public-facing `lightweight/README.md` (quick-start, limitations, decision matrix vs. standard TBMQ)
@@ -142,4 +196,4 @@ Explicitly out of scope for R1, scheduled for R2+. None of these are present in 
 
 ---
 
-*Generated 2026-04-30 by read-only audit of `tbmq-lightweight-brief.md` against `.planning/` and `lightweight/`. No code or planning artifacts modified.*
+*Generated 2026-04-30 by read-only audit of `tbmq-lightweight-brief.md` against `.planning/` and `lightweight/`. Original audit was read-only; the 2026-04-30 follow-up pass (Section 0) committed two atomic doc commits and two atomic code commits — see commits `4c039b49e`, `0d906f4e9`, `46143e19d`.*
