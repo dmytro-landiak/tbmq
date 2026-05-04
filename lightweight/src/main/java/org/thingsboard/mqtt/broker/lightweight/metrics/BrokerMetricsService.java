@@ -65,6 +65,11 @@ public class BrokerMetricsService {
                 .description("Messages dropped due to full dispatch queue")
                 .register(meterRegistry);
 
+        // Register LWT-fired counter — incremented in ClientActor when a Last Will is delivered
+        Counter.builder("mqtt.lwt.fired.total")
+                .description("Total Last Will Testament messages fired (delivered to subscribers)")
+                .register(meterRegistry);
+
         log.info("Broker metrics service initialized");
     }
 

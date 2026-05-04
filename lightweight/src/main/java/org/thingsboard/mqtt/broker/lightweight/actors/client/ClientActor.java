@@ -290,6 +290,7 @@ public class ClientActor extends AbstractTbActor {
             // Ungraceful disconnect — deliver LWT
             lastWillService.removeWill(sessionCtx.getSessionId()).ifPresent(will -> {
                 log.debug("[{}] Delivering LWT on topic '{}' (reason: {})", clientId, will.getTopicName(), reasonType);
+                meterRegistry.counter("mqtt.lwt.fired.total").increment();
                 // Handle retain flag on LWT
                 if (will.isRetain()) {
                     if (will.getPayload().length == 0) {

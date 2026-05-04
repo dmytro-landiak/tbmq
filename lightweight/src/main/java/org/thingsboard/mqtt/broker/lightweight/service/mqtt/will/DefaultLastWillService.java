@@ -15,6 +15,7 @@
  */
 package org.thingsboard.mqtt.broker.lightweight.service.mqtt.will;
 
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -57,6 +58,15 @@ public class DefaultLastWillService implements LastWillService {
         WillMessage removed = willMessages.remove(sessionId);
         if (removed != null) {
             log.debug("Removed LWT for session {} without delivery (topic: '{}')", sessionId, removed.getTopicName());
+        }
+    }
+
+    @PreDestroy
+    public void destroy() {
+        int remaining = willMessages.size();
+        willMessages.clear();
+        if (remaining > 0) {
+            log.info("Cleared {} pending LWT entries on shutdown", remaining);
         }
     }
 

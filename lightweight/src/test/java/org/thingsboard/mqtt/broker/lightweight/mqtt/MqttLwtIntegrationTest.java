@@ -1,9 +1,11 @@
 package org.thingsboard.mqtt.broker.lightweight.mqtt;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -28,6 +30,9 @@ import static org.awaitility.Awaitility.await;
  */
 class MqttLwtIntegrationTest extends AbstractMqttIntegrationTest {
 
+    @Autowired
+    private MeterRegistry meterRegistry;
+
     @Test
     void testLwt_ungracefulDisconnect_willMessageDelivered() throws Exception {
         // Subscriber listens on the LWT topic.
@@ -35,6 +40,10 @@ class MqttLwtIntegrationTest extends AbstractMqttIntegrationTest {
         subscriber.connect(defaultConnectOptions());
         AtomicReference<MqttMessage> received = new AtomicReference<>();
         subscriber.subscribe("lwt/topic", 0, (topic, msg) -> received.set(msg));
+
+        // Capture LWT-fired counter baseline so the assertion is order-independent
+        // even if other tests in this class fire LWT.
+        double lwtFiredBefore = meterRegistry.counter("mqtt.lwt.fired.total").count();
 
         // Raw socket: CONNECT with will message, then close the socket without DISCONNECT.
         // This simulates an ungraceful disconnect that triggers LWT delivery.
@@ -62,6 +71,10 @@ class MqttLwtIntegrationTest extends AbstractMqttIntegrationTest {
 
         await().atMost(5, SECONDS).until(() -> received.get() != null);
         assertThat(new String(received.get().getPayload())).isEqualTo("client-died");
+
+        // Verify the mqtt.lwt.fired.total counter incremented when the LWT was delivered.
+        await().atMost(5, SECONDS)
+                .until(() -> meterRegistry.counter("mqtt.lwt.fired.total").count() > lwtFiredBefore);
     }
 
     @Test
