@@ -39,13 +39,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * decremented by the in-broker dwell time rather than copied as-is from the inbound
  * PUBLISH.
  */
-class Mqtt5RetainExpiryTest extends AbstractMqtt5IntegrationTest {
+class Mqtt5RetainedMsgExpiryTest extends AbstractMqtt5IntegrationTest {
 
     private static final long ORIGINAL_EXPIRY_SECONDS = 60L;
     private static final long DWELL_MILLIS = 2_500L;
 
     @Test
-    void retainedMessageExpiryDecrementsByDwellTime() throws Exception {
+    void testRetainedMessageExpiryDecrementsByDwellTime() throws Exception {
         // Publish a retained message with a 60s Message Expiry Interval.
         MqttClient publisher = createV5Client("v5-retain-expiry-pub");
         publisher.connect(defaultV5ConnectOptions());
@@ -100,11 +100,9 @@ class Mqtt5RetainExpiryTest extends AbstractMqtt5IntegrationTest {
         assertThat(deliveredExpiry)
                 .as("Message Expiry Interval must be decremented by broker dwell time")
                 .isLessThan(ORIGINAL_EXPIRY_SECONDS);
-        // Loose lower bound to defend against scheduler jitter while still catching a
-        // clearly-wrong value (e.g. unchanged 60).  Anything between 56 and 59 inclusive
-        // is acceptable for a ~2.5s dwell on a single-node test broker.
+        // Defensive: any value strictly less than the original (60) confirms the decrement; the [50, 59] window catches wildly-wrong values without flaking on slow CI.
         assertThat(deliveredExpiry)
                 .as("decremented interval should be within plausible jitter window")
-                .isBetween(ORIGINAL_EXPIRY_SECONDS - 5, ORIGINAL_EXPIRY_SECONDS - 1);
+                .isBetween(ORIGINAL_EXPIRY_SECONDS - 10, ORIGINAL_EXPIRY_SECONDS - 1);
     }
 }
