@@ -378,14 +378,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
 
             // For MQTT 5.0: send DISCONNECT with reason code before closing (broker-initiated)
             if (sessionCtx.getMqttVersion() == MqttVersion.MQTT_5) {
-                MqttReasonCodes.Disconnect reasonCode;
-                if (reasonType == DisconnectReasonType.ON_PROTOCOL_ERROR || reasonType == DisconnectReasonType.ON_MALFORMED_PACKET) {
-                    reasonCode = MqttReasonCodeResolver.disconnectProtocolError();
-                } else if (reasonType == DisconnectReasonType.ON_PACKET_TOO_LARGE) {
-                    reasonCode = MqttReasonCodes.Disconnect.PACKET_TOO_LARGE;
-                } else {
-                    reasonCode = MqttReasonCodes.Disconnect.UNSPECIFIED_ERROR;
-                }
+                MqttReasonCodes.Disconnect reasonCode = MqttReasonCodeResolver.disconnectReasonFor(reasonType);
                 try {
                     ctx.writeAndFlush(messageGenerator.createDisconnect(reasonCode));
                 } catch (Exception e) {

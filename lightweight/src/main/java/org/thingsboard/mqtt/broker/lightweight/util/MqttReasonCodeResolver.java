@@ -19,6 +19,7 @@ import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttReasonCodes;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import org.thingsboard.mqtt.broker.lightweight.session.ClientSessionCtx;
+import org.thingsboard.mqtt.broker.lightweight.session.DisconnectReasonType;
 
 /**
  * Resolves version-appropriate MQTT reason codes for ACK packets.
@@ -148,6 +149,23 @@ public final class MqttReasonCodeResolver {
      */
     public static MqttReasonCodes.Disconnect disconnectTopicAliasInvalid() {
         return MqttReasonCodes.Disconnect.TOPIC_ALIAS_INVALID;
+    }
+
+    /**
+     * Maps a {@link DisconnectReasonType} to the appropriate MQTT 5.0 DISCONNECT reason code.
+     *
+     * <p>Used by transport-layer code when the broker initiates a DISCONNECT to a 5.0 client.
+     * Callers must verify the client is MQTT 5.0 before using the returned code.
+     *
+     * @param reasonType the broker-internal disconnect reason
+     * @return the corresponding 5.0 reason code; never {@code null}
+     */
+    public static MqttReasonCodes.Disconnect disconnectReasonFor(DisconnectReasonType reasonType) {
+        return switch (reasonType) {
+            case ON_PROTOCOL_ERROR, ON_MALFORMED_PACKET -> MqttReasonCodes.Disconnect.PROTOCOL_ERROR;
+            case ON_PACKET_TOO_LARGE -> MqttReasonCodes.Disconnect.PACKET_TOO_LARGE;
+            default -> MqttReasonCodes.Disconnect.UNSPECIFIED_ERROR;
+        };
     }
 
 }
