@@ -19,6 +19,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import lombok.Getter;
 import lombok.Setter;
+import org.thingsboard.mqtt.broker.lightweight.actors.TbTypeActorId;
 import org.thingsboard.mqtt.broker.lightweight.common.BrokerConstants;
 import org.thingsboard.mqtt.broker.lightweight.packet.PacketIdAllocator;
 import org.thingsboard.mqtt.broker.lightweight.security.auth.AuthRulePatterns;
@@ -61,6 +62,13 @@ public class ClientSessionCtx {
 
     /** MQTT clientId from the CONNECT packet. Set after CONNECT is processed. */
     private volatile String clientId;
+
+    /**
+     * Cached actor ID for this session. Allocated once after CONNECT processing and reused
+     * for all subsequent {@code actorSystem.tell} calls to avoid per-packet allocation
+     * on the inbound MQTT hot path.
+     */
+    private volatile TbTypeActorId clientActorId;
 
     /** Current lifecycle state of the session. */
     private volatile SessionState state;

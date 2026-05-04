@@ -211,7 +211,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
             }
         }
 
-        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        TbTypeActorId actorId = sessionCtx.getClientActorId();
         actorSystem.tell(actorId, new MqttPublishMsg(topicName, qos, payloadBytes, retain, dup, packetId, properties));
     }
 
@@ -219,7 +219,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         if (sessionCtx == null) {
             return;
         }
-        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        TbTypeActorId actorId = sessionCtx.getClientActorId();
         actorSystem.tell(actorId, new MqttSubscribeMsg(mqttSubscribeMessage));
     }
 
@@ -227,7 +227,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         if (sessionCtx == null) {
             return;
         }
-        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        TbTypeActorId actorId = sessionCtx.getClientActorId();
         actorSystem.tell(actorId, new MqttUnsubscribeMsg(mqttUnsubscribeMessage));
     }
 
@@ -236,7 +236,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
             return;
         }
         int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
-        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        TbTypeActorId actorId = sessionCtx.getClientActorId();
         actorSystem.tell(actorId, new MqttPubAckMsg(packetId));
     }
 
@@ -245,7 +245,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
             return;
         }
         int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
-        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        TbTypeActorId actorId = sessionCtx.getClientActorId();
         actorSystem.tell(actorId, new MqttPubRecMsg(packetId));
     }
 
@@ -254,7 +254,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
             return;
         }
         int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
-        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        TbTypeActorId actorId = sessionCtx.getClientActorId();
         actorSystem.tell(actorId, new MqttPubRelMsg(packetId));
     }
 
@@ -263,7 +263,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
             return;
         }
         int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
-        TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+        TbTypeActorId actorId = sessionCtx.getClientActorId();
         actorSystem.tell(actorId, new MqttPubCompMsg(packetId));
     }
 
@@ -323,6 +323,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         SslHandler sslHandler = (SslHandler) ctx.pipeline().get("ssl");
 
         TbTypeActorId actorId = new TbTypeActorId("client", clientId);
+        sessionCtx.setClientActorId(actorId);
         actorSystem.createRootActor(CLIENT_DISPATCHER, new ClientActorCreator(
                 clientId, sessionRegistry, messageGenerator, mqttConfig, subscriptionRegistry,
                 retainedMsgService, lastWillService, msgDispatcherService,
@@ -338,7 +339,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         if (sessionCtx != null) {
             // Per D-03: Ignore Session Expiry Interval in DISCONNECT packets
             // Always clean up immediately regardless of any properties
-            TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+            TbTypeActorId actorId = sessionCtx.getClientActorId();
             actorSystem.tell(actorId, new MqttDisconnectMsg(DisconnectReasonType.ON_DISCONNECT_MSG, "Client disconnected"));
         } else {
             ctx.close();
@@ -347,7 +348,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
 
     private void processPing() {
         if (sessionCtx != null) {
-            TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+            TbTypeActorId actorId = sessionCtx.getClientActorId();
             actorSystem.tell(actorId, PingMsg.INSTANCE);
         }
     }
@@ -365,7 +366,7 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         if (sessionCtx != null && sessionCtx.getState() != SessionState.DISCONNECTED) {
-            TbTypeActorId actorId = new TbTypeActorId("client", sessionCtx.getClientId());
+            TbTypeActorId actorId = sessionCtx.getClientActorId();
             try {
                 actorSystem.tell(actorId, new SessionCloseMsg(DisconnectReasonType.ON_CHANNEL_CLOSED));
             } catch (TbActorNotRegisteredException e) {
