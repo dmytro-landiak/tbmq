@@ -402,7 +402,7 @@ public class ClientActor extends AbstractTbActor {
                     int deliveryQos = Math.min(retained.getQos(), finalGrantedQos);
                     log.debug("[{}] Delivering retained message for topic '{}' (qos={})", clientId, retained.getTopicName(), deliveryQos);
                     MqttProperties retainedProps = sessionCtx.getMqttVersion() == MqttVersion.MQTT_5
-                            ? MqttPropertiesUtil.copyPublishPropertiesToDeliver(retained.getProperties())
+                            ? MqttPropertiesUtil.copyPublishPropertiesToDeliver(retained.getProperties(), retained.getCreatedTime())
                             : MqttProperties.NO_PROPERTIES;
                     if (deliveryQos == 0) {
                         sessionCtx.getChannel().writeAndFlush(

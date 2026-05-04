@@ -258,23 +258,58 @@ public final class MqttPropertiesUtil {
      * <p>The message expiry interval is copied as-is from the inbound PUBLISH.  When
      * forwarding a stored message to a subscriber the caller is responsible for
      * recomputing the remaining interval via
-     * {@link #getRemainingExpiryInterval(long, int)}.  Storing the original interval
-     * here is required so that the retained-message expiry check
-     * ({@link #isRetainedMsgExpired}) can compare it against {@code createdTime}.
+     * {@link #getRemainingExpiryInterval(long, int)} — see the
+     * {@link #copyPublishPropertiesToDeliver(MqttProperties, long)} overload.
+     * Storing the original interval here is required so that the retained-message
+     * expiry check ({@link #isRetainedMsgExpired}) can compare it against
+     * {@code createdTime}.
      *
      * @param source the original inbound PUBLISH properties
      * @return a new MqttProperties with the copied properties (never null)
      */
     public static MqttProperties copyPublishPropertiesToDeliver(MqttProperties source) {
+        return copyPublishProperties(source, null);
+    }
+
+    /**
+     * Creates a new {@link MqttProperties} for outbound PUBLISH delivery of a stored
+     * message, recomputing the Message Expiry Interval based on the broker dwell time
+     * (per MQTT 5.0 [MQTT-3.3.2-6]).
+     *
+     * <p>If the inbound PUBLISH had no Message Expiry Interval, none is added.  If the
+     * remaining interval has already elapsed (computed value {@code 0}), the property is
+     * omitted from the outbound PUBLISH — at that point the caller should normally have
+     * already filtered the message via {@link #isRetainedMsgExpired}, so this is a
+     * defensive fallback.
+     *
+     * @param source             the original inbound PUBLISH properties
+     * @param createdTimeMillis  epoch millis when the source message was received
+     * @return a new MqttProperties with the copied + recomputed properties (never null)
+     */
+    public static MqttProperties copyPublishPropertiesToDeliver(MqttProperties source, long createdTimeMillis) {
+        return copyPublishProperties(source, createdTimeMillis);
+    }
+
+    private static MqttProperties copyPublishProperties(MqttProperties source, Long createdTimeMillis) {
         MqttProperties dest = new MqttProperties();
         if (source == null || source == MqttProperties.NO_PROPERTIES) {
             return dest;
         }
 
-        // Message expiry interval — required for retained message expiry checks
+        // Message expiry interval — copy as-is for live delivery, or decrement by
+        // dwell time when forwarding a stored message (per MQTT 5.0 [MQTT-3.3.2-6]).
         MqttProperties.MqttProperty expiryInterval = source.getProperty(BrokerConstants.PUB_EXPIRY_INTERVAL_PROP_ID);
         if (expiryInterval != null) {
-            dest.add(expiryInterval);
+            if (createdTimeMillis == null) {
+                dest.add(expiryInterval);
+            } else if (expiryInterval instanceof MqttProperties.IntegerProperty intProp) {
+                int remaining = getRemainingExpiryInterval(createdTimeMillis, intProp.value());
+                if (remaining > 0) {
+                    addPubExpiryIntervalToProps(dest, remaining);
+                }
+                // remaining == 0 → message has expired in transit; omit the property
+                // (caller is expected to have skipped delivery via isRetainedMsgExpired).
+            }
         }
 
         // User properties
