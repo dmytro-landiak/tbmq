@@ -72,6 +72,7 @@ import org.thingsboard.mqtt.broker.lightweight.session.TopicAliasCtx;
 import org.thingsboard.mqtt.broker.lightweight.util.MqttPropertiesUtil;
 import org.thingsboard.mqtt.broker.lightweight.util.MqttReasonCodeResolver;
 
+import java.io.IOException;
 import java.util.UUID;
 
 /**
@@ -362,9 +363,10 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         String clientId = sessionCtx != null ? sessionCtx.getClientId() : "unknown";
-        if (cause instanceof java.io.IOException || cause instanceof java.nio.channels.ClosedChannelException) {
-            // Common: client closed the socket abruptly. Log at debug — the disconnect is
-            // already handled by channelInactive; nothing actionable for operators.
+        if (cause instanceof IOException) {
+            // Common: client closed the socket abruptly (covers ClosedChannelException, a subclass).
+            // Log at debug — the disconnect is already handled by channelInactive; nothing
+            // actionable for operators.
             log.debug("[{}] Channel closed by remote: {}", clientId, cause.getMessage());
         } else {
             log.warn("[{}] Exception in MQTT session handler: {}", clientId, cause.getMessage(), cause);

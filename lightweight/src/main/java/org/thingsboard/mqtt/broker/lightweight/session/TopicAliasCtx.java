@@ -16,7 +16,6 @@
 package org.thingsboard.mqtt.broker.lightweight.session;
 
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.thingsboard.mqtt.broker.lightweight.exception.ProtocolViolationException;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,7 +46,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * MQTT 3.1.1 clients. MQTT 5.0 clients should always get a fresh instance so inbound
  * client-to-broker aliases can be tracked per connection.
  */
-@Slf4j
 @Getter
 public class TopicAliasCtx {
 
