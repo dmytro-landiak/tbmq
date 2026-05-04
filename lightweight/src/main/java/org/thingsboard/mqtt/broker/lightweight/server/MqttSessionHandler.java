@@ -56,6 +56,7 @@ import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionCloseMsg
 import org.thingsboard.mqtt.broker.lightweight.actors.client.msg.SessionInitMsg;
 import org.thingsboard.mqtt.broker.lightweight.config.Mqtt5Configuration;
 import org.thingsboard.mqtt.broker.lightweight.config.MqttConfiguration;
+import org.thingsboard.mqtt.broker.lightweight.exception.ProtocolViolationException;
 import org.thingsboard.mqtt.broker.lightweight.security.acl.AuthorizationRuleService;
 import org.thingsboard.mqtt.broker.lightweight.security.auth.LightweightAuthService;
 import org.thingsboard.mqtt.broker.lightweight.service.mqtt.MqttMessageGenerator;
@@ -215,8 +216,8 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
                                 "Topic alias with no mapping");
                         return;
                     }
-                } catch (RuntimeException e) {
-                    // Topic alias validation failed (alias=0 or exceeds max)
+                } catch (ProtocolViolationException e) {
+                    // Topic alias validation failed (alias=0, exceeds max, or unknown mapping)
                     log.warn("[{}] Invalid topic alias: {}", sessionCtx.getClientId(), e.getMessage());
                     disconnect(ctx, DisconnectReasonType.ON_PROTOCOL_ERROR, e.getMessage());
                     return;

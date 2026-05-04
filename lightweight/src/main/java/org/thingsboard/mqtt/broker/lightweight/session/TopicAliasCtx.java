@@ -17,6 +17,7 @@ package org.thingsboard.mqtt.broker.lightweight.session;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.thingsboard.mqtt.broker.lightweight.exception.ProtocolViolationException;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -39,7 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <p>Per [MQTT-3.3.2-7]: Topic Alias 0 is a protocol error. Per [MQTT-3.3.2-8]: a Topic Alias
  * greater than Topic Alias Maximum is a protocol error. Both cases trigger
- * {@link #validateInboundAlias(int)}, which throws a {@link RuntimeException} that the caller
+ * {@link #validateInboundAlias(int)}, which throws a {@link ProtocolViolationException} that the caller
  * catches to disconnect the client with reason code {@code TOPIC_ALIAS_INVALID}.
  *
  * <p>The static {@link #DISABLED_TOPIC_ALIASES} singleton represents a disabled context for
@@ -106,7 +107,7 @@ public class TopicAliasCtx {
      * @param topicName  the topic name from the PUBLISH (may be empty if alias is used)
      * @param topicAlias the topic alias from PUBLISH properties (0 = no alias)
      * @return resolved topic name, or {@code null} if no alias was present in the packet
-     * @throws RuntimeException if the alias is invalid (0 or exceeds inbound maximum)
+     * @throws ProtocolViolationException if the alias is invalid (0 or exceeds inbound maximum)
      */
     public String getTopicNameByAlias(String topicName, int topicAlias) {
         if (topicAlias == 0) {
@@ -123,7 +124,7 @@ public class TopicAliasCtx {
             // Client is using an existing alias — look up stored topic name
             String resolved = clientMappings.get(topicAlias);
             if (resolved == null) {
-                throw new RuntimeException("Unknown Topic Alias: " + topicAlias);
+                throw new ProtocolViolationException("Unknown Topic Alias: " + topicAlias);
             }
             return resolved;
         }
@@ -171,17 +172,17 @@ public class TopicAliasCtx {
      * Per [MQTT-3.3.2-8]: Topic Alias > Topic Alias Maximum is a protocol error.
      *
      * @param topicAlias the alias value to validate
-     * @throws RuntimeException if the alias is invalid
+     * @throws ProtocolViolationException if the alias is invalid
      */
     public void validateInboundAlias(int topicAlias) {
         if (topicAlias == 0) {
-            throw new RuntimeException("Topic Alias is zero — protocol error");
+            throw new ProtocolViolationException("Topic Alias is zero — protocol error");
         }
         if (inboundMax == 0) {
-            throw new RuntimeException("Topic aliases are disabled (TopicAliasMaximum=0) — protocol error");
+            throw new ProtocolViolationException("Topic aliases are disabled (TopicAliasMaximum=0) — protocol error");
         }
         if (topicAlias > inboundMax) {
-            throw new RuntimeException("Topic Alias " + topicAlias + " exceeds inbound maximum " + inboundMax);
+            throw new ProtocolViolationException("Topic Alias " + topicAlias + " exceeds inbound maximum " + inboundMax);
         }
     }
 
