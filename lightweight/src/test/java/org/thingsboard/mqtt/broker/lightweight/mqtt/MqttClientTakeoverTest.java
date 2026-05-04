@@ -62,6 +62,35 @@ class MqttClientTakeoverTest extends AbstractMqttIntegrationTest {
         client2.disconnect();
     }
 
+    @org.junit.jupiter.api.Test
+    void newConnectionSurvivesRapidTakeoverRace() throws Exception {
+        // Stress-fire 20 takeovers in rapid succession on the same clientId.
+        // Without the fix, the displaced-session race window may close the new connection
+        // (the OLD handler's channelInactive sends SessionCloseMsg under stale state).
+        String clientId = "takeover-race-" + java.util.UUID.randomUUID();
+
+        org.eclipse.paho.client.mqttv3.MqttClient lastClient = null;
+        for (int i = 0; i < 20; i++) {
+            org.eclipse.paho.client.mqttv3.MqttClient c = createClient(clientId);
+            c.connect(defaultConnectOptions());
+            // Do NOT disconnect — the next iteration is a TCP-level takeover.
+            lastClient = c;
+        }
+
+        // Assert the final client is still connected and can perform a round-trip.
+        org.junit.jupiter.api.Assertions.assertNotNull(lastClient);
+        org.junit.jupiter.api.Assertions.assertTrue(lastClient.isConnected(),
+                "Most-recent client should remain connected after rapid takeover storm");
+
+        // Round-trip: subscribe + publish to itself, expect delivery.
+        java.util.concurrent.CountDownLatch deliveryLatch = new java.util.concurrent.CountDownLatch(1);
+        lastClient.subscribe("takeover/race/" + clientId, (topic, message) -> deliveryLatch.countDown());
+        lastClient.publish("takeover/race/" + clientId, "hello".getBytes(), 1, false);
+        org.junit.jupiter.api.Assertions.assertTrue(
+                deliveryLatch.await(5, java.util.concurrent.TimeUnit.SECONDS),
+                "Final client should remain operational after takeover race");
+    }
+
     @Test
     void testClientTakeover_newSessionFunctional() throws Exception {
         // First client connects.

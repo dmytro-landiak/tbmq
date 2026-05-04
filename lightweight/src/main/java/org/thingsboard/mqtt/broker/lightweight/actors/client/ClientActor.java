@@ -211,12 +211,16 @@ public class ClientActor extends AbstractTbActor {
             oldSession.getOutboundQos1().clear();
             oldSession.getOutboundQos2().clear();
             oldSession.getPacketIdAllocator().releaseAll();
-            // Close the old session's channel
-            oldSession.setState(SessionState.DISCONNECTING);
+            // Mark the old session DISCONNECTED *before* closing its channel.
+            // channelInactive on the old handler fires from the Netty event loop AFTER
+            // the close call returns; the volatile write below happens-before that close,
+            // so channelInactive will observe DISCONNECTED and skip its SessionCloseMsg
+            // tell — preventing it from tearing down the new session via the reused
+            // ClientActor (whose sessionCtx field has already been swapped to the new one).
+            oldSession.setState(SessionState.DISCONNECTED);
             if (oldSession.getChannel().channel().isActive()) {
                 oldSession.getChannel().close();
             }
-            oldSession.setState(SessionState.DISCONNECTED);
         }
 
         // Send CONNACK — sessionPresent always false in R1 (clean session only)
