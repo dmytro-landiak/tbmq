@@ -1,0 +1,33 @@
+/**
+ * Copyright © 2016-2026 The Thingsboard Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.thingsboard.mqtt.broker.lightweight.exception;
+
+import java.io.Serial;
+
+/**
+ * Thrown when an MQTT client violates the protocol (malformed packet, invalid topic alias,
+ * out-of-spec property value, etc.). Caught at the transport boundary and translated into
+ * a broker-initiated DISCONNECT with the appropriate reason code.
+ */
+public class ProtocolViolationException extends RuntimeException {
+
+    @Serial
+    private static final long serialVersionUID = 6130139932588069150L;
+
+    public ProtocolViolationException(String message) {
+        super(message);
+    }
+}
