@@ -6,6 +6,8 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -62,33 +64,79 @@ class MqttClientTakeoverTest extends AbstractMqttIntegrationTest {
         client2.disconnect();
     }
 
-    @org.junit.jupiter.api.Test
-    void newConnectionSurvivesRapidTakeoverRace() throws Exception {
+    @Test
+    void testNewConnectionSurvivesRapidTakeoverRace() throws Exception {
         // Stress-fire 20 takeovers in rapid succession on the same clientId.
         // Without the fix, the displaced-session race window may close the new connection
         // (the OLD handler's channelInactive sends SessionCloseMsg under stale state).
-        String clientId = "takeover-race-" + java.util.UUID.randomUUID();
+        String clientId = "takeover-race-" + UUID.randomUUID();
 
-        org.eclipse.paho.client.mqttv3.MqttClient lastClient = null;
+        MqttClient lastClient = null;
         for (int i = 0; i < 20; i++) {
-            org.eclipse.paho.client.mqttv3.MqttClient c = createClient(clientId);
+            MqttClient c = createClient(clientId);
             c.connect(defaultConnectOptions());
             // Do NOT disconnect — the next iteration is a TCP-level takeover.
             lastClient = c;
         }
 
-        // Assert the final client is still connected and can perform a round-trip.
-        org.junit.jupiter.api.Assertions.assertNotNull(lastClient);
-        org.junit.jupiter.api.Assertions.assertTrue(lastClient.isConnected(),
-                "Most-recent client should remain connected after rapid takeover storm");
+        // Assert the final client is still connected.
+        assertThat(lastClient).isNotNull();
+        assertThat(lastClient.isConnected())
+                .as("Most-recent client should remain connected after rapid takeover storm")
+                .isTrue();
+
+        // Dwell so any delayed SessionCloseMsg-driven teardown has a chance to land.
+        Thread.sleep(200);
+        assertThat(lastClient.isConnected())
+                .as("Most-recent client should still be connected after dwell")
+                .isTrue();
 
         // Round-trip: subscribe + publish to itself, expect delivery.
-        java.util.concurrent.CountDownLatch deliveryLatch = new java.util.concurrent.CountDownLatch(1);
+        CountDownLatch deliveryLatch = new CountDownLatch(1);
         lastClient.subscribe("takeover/race/" + clientId, (topic, message) -> deliveryLatch.countDown());
         lastClient.publish("takeover/race/" + clientId, "hello".getBytes(), 1, false);
-        org.junit.jupiter.api.Assertions.assertTrue(
-                deliveryLatch.await(5, java.util.concurrent.TimeUnit.SECONDS),
-                "Final client should remain operational after takeover race");
+        assertThat(deliveryLatch.await(5, SECONDS))
+                .as("Final client should remain operational after takeover race")
+                .isTrue();
+    }
+
+    @Test
+    void testNewConnectionSurvivesRapidReconnectAfterDisconnect() throws Exception {
+        // Stress-fire 20 clean-disconnect-then-reconnect cycles on the same clientId.
+        // Without the sibling fix in processDisconnect, a late channelInactive from the
+        // OLD disconnected session could deliver SessionCloseMsg to the FRESH actor for
+        // the next iteration's connect (createRootActor returns a fresh actor with the
+        // same actorId after the previous ctx.stop), tearing down a connection that
+        // should be intact.
+        String clientId = "reconnect-race-" + UUID.randomUUID();
+
+        for (int i = 0; i < 20; i++) {
+            MqttClient c = createClient(clientId);
+            c.connect(defaultConnectOptions());
+            // Clean disconnect — the next iteration is a fresh connect on the same clientId.
+            c.disconnect();
+        }
+
+        // Final client connects with the same clientId.
+        MqttClient lastClient = createClient(clientId);
+        lastClient.connect(defaultConnectOptions());
+        assertThat(lastClient.isConnected())
+                .as("Final client should connect after rapid disconnect/reconnect storm")
+                .isTrue();
+
+        // Dwell so any delayed SessionCloseMsg-driven teardown has a chance to land.
+        Thread.sleep(200);
+        assertThat(lastClient.isConnected())
+                .as("Final client should still be connected after dwell")
+                .isTrue();
+
+        // Round-trip: subscribe + publish to itself, expect delivery.
+        CountDownLatch deliveryLatch = new CountDownLatch(1);
+        lastClient.subscribe("reconnect/race/" + clientId, (topic, message) -> deliveryLatch.countDown());
+        lastClient.publish("reconnect/race/" + clientId, "hello".getBytes(), 1, false);
+        assertThat(deliveryLatch.await(5, SECONDS))
+                .as("Final client should remain operational after reconnect race")
+                .isTrue();
     }
 
     @Test

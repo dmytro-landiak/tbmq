@@ -329,11 +329,16 @@ public class ClientActor extends AbstractTbActor {
 
         sessionRegistry.removeSession(clientId);
 
+        // Mark DISCONNECTED before scheduling channel close so a late channelInactive
+        // on the OLD handler observes DISCONNECTED and skips its SessionCloseMsg tell.
+        // Same JMM happens-before reasoning as in processConnect's takeover block:
+        // a rapid clean-disconnect-then-reconnect on the same clientId would otherwise
+        // route SessionCloseMsg to the freshly-created actor for the new connection.
+        sessionCtx.setState(SessionState.DISCONNECTED);
+
         if (!channelAlreadyClosed) {
             sessionCtx.getChannel().close();
         }
-
-        sessionCtx.setState(SessionState.DISCONNECTED);
 
         if (ctx != null) {
             ctx.stop(ctx.getSelf());
