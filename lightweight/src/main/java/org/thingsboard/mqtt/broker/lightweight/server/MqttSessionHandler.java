@@ -37,6 +37,7 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.thingsboard.mqtt.broker.lightweight.actors.TbActorMsg;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorNotRegisteredException;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbActorSystem;
 import org.thingsboard.mqtt.broker.lightweight.actors.TbTypeActorId;
@@ -166,6 +167,18 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
+    /**
+     * Sends a message to the cached client actor for this session. Returns silently if no session
+     * has been initialized (i.e., before CONNECT). Centralizes the guard + tell pattern that
+     * would otherwise be duplicated at every MQTT packet handler.
+     */
+    private void tellActor(TbActorMsg msg) {
+        if (sessionCtx == null) {
+            return;
+        }
+        actorSystem.tell(sessionCtx.getClientActorId(), msg);
+    }
+
     private void processPublish(ChannelHandlerContext ctx, MqttPublishMessage mqttPublishMessage) {
         if (sessionCtx == null) {
             return;
@@ -211,60 +224,31 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
             }
         }
 
-        TbTypeActorId actorId = sessionCtx.getClientActorId();
-        actorSystem.tell(actorId, new MqttPublishMsg(topicName, qos, payloadBytes, retain, dup, packetId, properties));
+        tellActor(new MqttPublishMsg(topicName, qos, payloadBytes, retain, dup, packetId, properties));
     }
 
     private void processSubscribe(MqttSubscribeMessage mqttSubscribeMessage) {
-        if (sessionCtx == null) {
-            return;
-        }
-        TbTypeActorId actorId = sessionCtx.getClientActorId();
-        actorSystem.tell(actorId, new MqttSubscribeMsg(mqttSubscribeMessage));
+        tellActor(new MqttSubscribeMsg(mqttSubscribeMessage));
     }
 
     private void processUnsubscribe(MqttUnsubscribeMessage mqttUnsubscribeMessage) {
-        if (sessionCtx == null) {
-            return;
-        }
-        TbTypeActorId actorId = sessionCtx.getClientActorId();
-        actorSystem.tell(actorId, new MqttUnsubscribeMsg(mqttUnsubscribeMessage));
+        tellActor(new MqttUnsubscribeMsg(mqttUnsubscribeMessage));
     }
 
     private void processPubAck(MqttMessage msg) {
-        if (sessionCtx == null) {
-            return;
-        }
-        int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
-        TbTypeActorId actorId = sessionCtx.getClientActorId();
-        actorSystem.tell(actorId, new MqttPubAckMsg(packetId));
+        tellActor(new MqttPubAckMsg(((MqttMessageIdVariableHeader) msg.variableHeader()).messageId()));
     }
 
     private void processPubRec(MqttMessage msg) {
-        if (sessionCtx == null) {
-            return;
-        }
-        int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
-        TbTypeActorId actorId = sessionCtx.getClientActorId();
-        actorSystem.tell(actorId, new MqttPubRecMsg(packetId));
+        tellActor(new MqttPubRecMsg(((MqttMessageIdVariableHeader) msg.variableHeader()).messageId()));
     }
 
     private void processPubRel(MqttMessage msg) {
-        if (sessionCtx == null) {
-            return;
-        }
-        int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
-        TbTypeActorId actorId = sessionCtx.getClientActorId();
-        actorSystem.tell(actorId, new MqttPubRelMsg(packetId));
+        tellActor(new MqttPubRelMsg(((MqttMessageIdVariableHeader) msg.variableHeader()).messageId()));
     }
 
     private void processPubComp(MqttMessage msg) {
-        if (sessionCtx == null) {
-            return;
-        }
-        int packetId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
-        TbTypeActorId actorId = sessionCtx.getClientActorId();
-        actorSystem.tell(actorId, new MqttPubCompMsg(packetId));
+        tellActor(new MqttPubCompMsg(((MqttMessageIdVariableHeader) msg.variableHeader()).messageId()));
     }
 
     private void processConnect(ChannelHandlerContext ctx, MqttConnectMessage connectMsg) {
@@ -339,18 +323,14 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
         if (sessionCtx != null) {
             // Per D-03: Ignore Session Expiry Interval in DISCONNECT packets
             // Always clean up immediately regardless of any properties
-            TbTypeActorId actorId = sessionCtx.getClientActorId();
-            actorSystem.tell(actorId, new MqttDisconnectMsg(DisconnectReasonType.ON_DISCONNECT_MSG, "Client disconnected"));
+            tellActor(new MqttDisconnectMsg(DisconnectReasonType.ON_DISCONNECT_MSG, "Client disconnected"));
         } else {
             ctx.close();
         }
     }
 
     private void processPing() {
-        if (sessionCtx != null) {
-            TbTypeActorId actorId = sessionCtx.getClientActorId();
-            actorSystem.tell(actorId, PingMsg.INSTANCE);
-        }
+        tellActor(PingMsg.INSTANCE);
     }
 
     @Override
