@@ -360,9 +360,14 @@ public class MqttSessionHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        log.error("[{}] Exception in MQTT session handler: {}",
-                sessionCtx != null ? sessionCtx.getClientId() : "unknown",
-                cause.getMessage(), cause);
+        String clientId = sessionCtx != null ? sessionCtx.getClientId() : "unknown";
+        if (cause instanceof java.io.IOException || cause instanceof java.nio.channels.ClosedChannelException) {
+            // Common: client closed the socket abruptly. Log at debug — the disconnect is
+            // already handled by channelInactive; nothing actionable for operators.
+            log.debug("[{}] Channel closed by remote: {}", clientId, cause.getMessage());
+        } else {
+            log.warn("[{}] Exception in MQTT session handler: {}", clientId, cause.getMessage(), cause);
+        }
         disconnect(ctx, DisconnectReasonType.ON_ERROR, cause.getMessage());
     }
 
