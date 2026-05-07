@@ -71,7 +71,7 @@ A fully functional MQTT broker that starts with a single `docker run` command an
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Separate repository over configurable mode | Infrastructure layers differ enough that dual-mode branching in main repo creates long-term maintenance cost | — Pending |
+| Separate repository over configurable mode | Infrastructure layers differ enough that dual-mode branching in main repo creates long-term maintenance cost | Deferred — `lightweight/` stays as in-tree sibling project through R1 + R2; revisit post-R2 |
 | RocksDB for embedded storage | Battle-tested for embedded KV workloads, already in ThingsBoard ecosystem, small disk footprint | Validated — Phase 1 |
 | In-process message dispatch over Kafka | Single-node deployment removes need for distributed messaging; in-process queue provides lower latency | Validated — Phase 3 |
 | Clean Session only in R1 | Persistent sessions add significant complexity; defer to R2 to ship core broker faster | Validated — Phase 2 |

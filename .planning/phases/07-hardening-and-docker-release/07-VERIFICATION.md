@@ -1,15 +1,15 @@
 ---
 phase: 07-hardening-and-docker-release
 verified: 2026-04-11T16:02:38Z
-revisited: 2026-04-30T13:50:00Z
-status: human_needed
-score: 3/4 must-haves verified (SC-3 ARM64 hardware run remaining; SC-2 closed as optional 2026-04-30, SC-4 user-confirmed 2026-04-30)
+revisited: 2026-05-07
+status: complete
+score: 4/4 must-haves verified (SC-1 ✓, SC-2 closed as optional 2026-04-30, SC-3 ARM64 user-confirmed 2026-05-07 on AWS Graviton, SC-4 user-confirmed 2026-04-30)
 overrides_applied: 0
 human_verification:
   - test: "Execute arm64-validate.sh on real ARM64 hardware (not QEMU)"
     expected: "Script prints 'ARM64 validation PASSED' after completing all 5 steps: container start, subscribe, publish receipt, container restart, credential persistence"
     why_human: "Roadmap SC-3 explicitly requires execution on real ARM64 hardware. Plan 02 Task 3 was auto-approved — no human ran the script on a physical device. QEMU emulation does not satisfy this criterion."
-    result: pending
+    result: passed (2026-05-07 — AWS EC2 t4g.small Graviton, Ubuntu 26.04 ARM64, image dlandiak2110/tbmq-lightweight:latest; all 4 checks pass — arm64/linux confirmed, no UnsatisfiedLinkError, pub/sub round-trip OK, credentials persisted across container restart)
   - test: "Observe startup warning banner in docker logs output"
     expected: "Running 'docker logs <container>' shows the WARN-level '===...TBMQ LIGHTWEIGHT — STARTUP WARNINGS...' banner with TLS, retained-message, and (if applicable) overlay-filesystem warnings"
     why_human: "Integration tests use direct MeterRegistry queries, not the actual docker logs output. SC-4 says 'logs a clear startup warning' — the log format and visibility in real docker logs requires visual confirmation."
@@ -19,8 +19,8 @@ human_verification:
 # Phase 7: Hardening and Docker Release Verification Report
 
 **Phase Goal:** The complete broker passes a 24-hour soak test with zero memory leaks or ByteBuf warnings, the Docker image is validated on real ARM64 hardware, Prometheus metrics are confirmed accurate under load, and the broker emits clear startup warnings for common misconfigurations before public release
-**Verified:** 2026-04-11T16:02:38Z
-**Status:** human_needed
+**Verified:** 2026-04-11T16:02:38Z (initial); 2026-05-07 (final — all SC closed)
+**Status:** complete
 **Re-verification:** No — initial verification
 
 ## Goal Achievement
@@ -31,10 +31,10 @@ human_verification:
 |---|-------|--------|----------|
 | SC-1 | `GET /actuator/prometheus` returns accurate metrics under sustained load: connection count, message rates (in/out), auth success/failure counts, RocksDB read latency, and dispatch queue depth | VERIFIED | All 5 counters/gauges registered and wired. BrokerMetricsIT: 5 tests pass. ConnectionCountHandler (mqtt.connections.active), DefaultRocksDbStorage (rocksdb.read.latency), all new metrics confirmed via passing integration tests. |
 | SC-2 | A 24-hour soak test with simulated production load shows zero Netty ByteBuf leak warnings (PARANOID detection) and stable container RSS (no unbounded growth) | VERIFIED (canonical evidence: 1-minute smoke run; 24h run closed as OPTIONAL on 2026-04-30) | SoakTest.java exists with @Tag("soak"), PARANOID ListAppender, heap stability assertion (< 1.20x baseline). 1-minute smoke run passed per SUMMARY (140,008 msgs, 0 leaks, 72MB final vs 86MB baseline). Per user decision 2026-04-30, the 24-hour run is treated as optional — correctness is duration-independent and the smoke run is the canonical SC-2 evidence. |
-| SC-3 | The Docker image runs correctly on a real ARM64 device (not QEMU emulation); the broker starts, accepts connections, and RocksDB persists data | NEEDS HUMAN | scripts/arm64-validate.sh exists, is executable, passes bash syntax validation. Plan 02 Task 3 checkpoint was "auto-approved" — no physical ARM64 device test was run. Roadmap explicitly excludes QEMU. |
+| SC-3 | The Docker image runs correctly on a real ARM64 device (not QEMU emulation); the broker starts, accepts connections, and RocksDB persists data | VERIFIED (2026-05-07) | Executed on AWS EC2 t4g.small Graviton (Ubuntu 26.04 ARM64) using `dlandiak2110/tbmq-lightweight:latest`. arm64/linux confirmed via `docker inspect`; broker logged `Started TbmqLightweightApplication` with no `UnsatisfiedLinkError` (validates RocksDB JNI on glibc/aarch64); mosquitto pub/sub round-trip succeeded on 1883; default `tbmq/tbmq` credentials persisted across container restart with named volume. |
 | SC-4 | The broker logs a clear startup warning when TLS is not configured, when `/data/rocksdb` is not volume-mounted, and when retained messages are in-memory only | VERIFIED (banner observed in `docker logs` 2026-04-30) | StartupWarningService.java: @Order(2) @EventListener, all 3 warning conditions implemented. Unit tests: 6 pass. Banner visibility in real `docker logs` user-confirmed 2026-04-30. WR-04 (`5d25fbf3d`) split the retained-in-memory line out as INFO so the `if (!warnings.isEmpty())` banner guard is non-trivial again. |
 
-**Score:** 3/4 truths verified (SC-3 ARM64 hardware run remaining; SC-2 closed as optional 2026-04-30; SC-4 banner user-confirmed 2026-04-30)
+**Score:** 4/4 truths verified (SC-1 ✓; SC-2 closed as optional 2026-04-30; SC-3 ARM64 user-confirmed 2026-05-07 on AWS Graviton; SC-4 banner user-confirmed 2026-04-30)
 
 ### Deferred Items
 
@@ -62,7 +62,7 @@ None — Phase 7 is the final milestone phase. No later phases exist to defer it
 | ClientActor.java | meterRegistry | counter increment in processDeliver | WIRED | `meterRegistry.counter("mqtt.messages.delivered.total").increment()` at line 663 |
 | DefaultLightweightAuthService.java | meterRegistry | counter increment in authenticate() | WIRED | `authSuccessCounter.increment()` and `authFailureCounter.increment()` before every AuthResult return across all auth paths |
 | DefaultMsgDispatcherService.java | meterRegistry | Gauge registration in start() | WIRED | `Gauge.builder("mqtt.dispatch.queue.depth", queue, Queue::size).register(meterRegistry)` at line 95 |
-| arm64-validate.sh | Docker image | docker run + mosquitto_pub/sub | VERIFIED (static) | Script contains all required commands; execution on real hardware needs human |
+| arm64-validate.sh | Docker image | docker run + mosquitto_pub/sub | VERIFIED (2026-05-07 on AWS Graviton) | Manual run on AWS EC2 t4g.small executed all four canonical SC-3 checks against `dlandiak2110/tbmq-lightweight:latest`; all passed. |
 
 ### Data-Flow Trace (Level 4)
 

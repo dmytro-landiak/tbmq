@@ -4,7 +4,7 @@ generator: brief-vs-implementation audit (read-only)
 brief_source: tbmq-lightweight-brief.md
 project_planning: .planning/
 codebase_under_audit: lightweight/
-last_followup_pass: 2026-04-30
+last_followup_pass: 2026-05-07
 ---
 
 # TBMQ Lightweight — Status
@@ -32,31 +32,36 @@ Sweep of every actionable item that didn't require human judgment, hardware, cre
 - **SC-4 docker-logs banner visual check — DONE.** User confirmed the `STARTUP WARNINGS` banner is visible in real `docker logs` output. The Phase 7 success criterion 4 is signed off.
 - **SC-2 24-hour soak — CLOSED as OPTIONAL.** User decision: drop the 24-hour soak as a release gate. Rationale aligns with the original audit note ("Not strictly blocking — test correctness is duration-independent"). The 1-minute smoke run on 2026-04-12 (140 008 messages, 0 ByteBuf leaks under PARANOID, heap stable) is the canonical Phase 7 SC-2 evidence.
 
-### Skipped — 7 items (each requires user input the autonomous pass cannot supply)
+### User-decided / confirmed since the autonomous pass — 6 items (2026-05-07)
 
-| Item | Reason for skip |
-|------|-----------------|
-| Phase 7 SC-3 — ARM64 hardware run | Requires physical ARM64 device (Pi/Graviton/M-series Mac); script `scripts/arm64-validate.sh` is ready |
-| STATE.md `status: verifying` → `complete` | Should remain `verifying` until SC-3 is signed off |
-| Repository extraction (Option A separate repo) | Needs user go/no-go decision; PROJECT.md correctly records as Pending |
-| `lightweight/README.md` (quick-start, limitations, decision matrix vs. standard TBMQ) | Needs product judgment on user-facing content |
-| CI workflow `mvn -f lightweight/pom.xml verify` on PRs | Needs user decision on workflow file location and CI conventions |
-| Multi-arch Docker push to `thingsboard/tbmq-lightweight:1.0.0` and `:latest` | Requires Docker Hub registry credentials |
-| Item 9 — `ClientActor.java:203-215` displaced-actor leak | Architectural change — needs design judgment, not a typo fix |
+All previously-skipped items now resolved or decided:
+
+- **SC-3 ARM64 hardware run — DONE.** Validated on AWS EC2 t4g.small Graviton (Ubuntu 26.04 ARM64) using `dlandiak2110/tbmq-lightweight:latest`. All four canonical SC-3 checks confirmed: arm64/linux via `docker inspect`; broker logged `Started TbmqLightweightApplication` with no `UnsatisfiedLinkError` (RocksDB JNI on glibc/aarch64 OK); mosquitto pub/sub round-trip on port 1883; default `tbmq/tbmq` credentials persisted across container restart with named volume.
+- **STATE.md `status: verifying` → `complete` — DONE.** Flipped after SC-3 passed; all four Phase 7 success criteria are now signed off (SC-1 ✓, SC-2 OPTIONAL/smoke-only, SC-3 ✓, SC-4 ✓).
+- **Multi-arch Docker push (test registry) — DONE.** Image built via `docker buildx --platform linux/amd64,linux/arm64` and pushed to `dlandiak2110/tbmq-lightweight:1.0.0` and `:latest`. OCI manifest index `sha256:98554b72...` contains both `linux/amd64` (`sha256:0a55907c...`) and `linux/arm64` (`sha256:76a61528...`). Production push to `thingsboard/tbmq-lightweight` org would need separate Docker Hub credentials and is not pursued here.
+- **Repository extraction — DEFERRED through R2.** User decision: keep `lightweight/` as in-tree sibling project alongside the main TBMQ codebase in this repo for the duration of R1 + R2; revisit the repo-split question only after R2 ships. PROJECT.md "Key Decisions" row updated 2026-05-07: Pending → "Deferred — `lightweight/` stays as in-tree sibling project through R1 + R2; revisit post-R2".
+- **`lightweight/README.md` — DEFERRED until after R2.** User decision: paired with the eventual repo-split decision; hold for the post-R2 ship.
+- **CI workflow `mvn -f lightweight/pom.xml verify` on PRs — DROPPED.** User decision: not pursuing for v1.0. New-risk #15 (regression-catch motivation) is acknowledged but accepted; not a v1.0 gate.
+
+Also done 2026-05-07: branch rename `codebase-map` → `lightweight/v1` (pushed to origin; old branch deleted on remote). Performance-floor blocker (10 k connections / 50 k msg/s) removed from STATE.md — no explicit throughput floor required for v1.0.
+
+### Skipped — 0 items remaining
+
+All six previously-skipped items have been resolved or decided. See "User-decided / confirmed since the autonomous pass — 6 items (2026-05-07)" above.
 
 ### What's left for the user
 
 **Pre-release gates** (block public 1.0.0 tag):
-1. Run `scripts/arm64-validate.sh` on real ARM64 hardware (SC-3) — the only remaining Phase 7 success criterion
+1. ~~Run `scripts/arm64-validate.sh` on real ARM64 hardware (SC-3) — the only remaining Phase 7 success criterion~~ — **Done 2026-05-07** (AWS EC2 t4g.small Graviton; full evidence in `07-VERIFICATION.md` and `07-HUMAN-UAT.md`).
 
-**Product/tooling decisions** (none block release strictly, but recommended before Phase 8):
-2. Decide repository strategy — extract `lightweight/` to its own repo (per brief Option A) or amend PROJECT.md to record "in-tree sibling project" as the chosen variant
-3. Authorise / produce `lightweight/README.md`
-4. Authorise / wire CI workflow for the lightweight Maven project
-5. Provide Docker Hub credentials and authorise `docker buildx push` for `1.0.0` and `:latest`
+**Product/tooling decisions** (all resolved 2026-05-07 — none block v1.0):
+2. ~~Decide repository strategy~~ — **Deferred through R2** (in-tree sibling project; revisit post-R2).
+3. ~~Authorise / produce `lightweight/README.md`~~ — **Deferred until after R2**.
+4. ~~Authorise / wire CI workflow for the lightweight Maven project~~ — **Dropped for v1.0**.
+5. ~~Provide Docker Hub credentials and authorise `docker buildx push` for `1.0.0` and `:latest`~~ — **Done 2026-05-07** (test registry `dlandiak2110/`; production `thingsboard/` push deferred — not a v1.0 gate).
 
 **Optional cleanup** (post-1.0.0):
-6. Item 9 (ClientActor displaced-actor leak) — needs an explicit `stop()` design
+6. ~~Item 9 (ClientActor displaced-actor leak) — needs an explicit `stop()` design~~ — **Resolved 2026-05-04** during R1 code review pass on `lightweight/v1`. The "QoS state leak" half was already closed by Phase 7 CR-01 (`6dc0166e0`); the "explicit stop()" half rested on a misreading of the architecture (ClientActor is keyed by clientId and reused across reconnects — there is no displaced actor object, only a displaced ClientSessionCtx whose heavy state is cleared and whose reference falls out of scope). The R1 review surveyed `ClientActor` under T5 and rejected further changes; T11 (TbActorMailbox concurrency) was also rejected as sound. The real takeover defect was a separate timing race fixed by **T10** (`9da6ee54f`) + **T10b** (`5ddc867b1`). Verdict from `lightweight/REVIEW_REPORT.md`: existing pattern is sound.
 7. ~~Item 10 (dispatch race window) — production-acceptable, only revisit if benchmarks show a problem~~ — **Done 2026-04-30** (`0029a4377`)
 
 ---
@@ -111,7 +116,7 @@ Mapping the brief's "Release 1 — Core" feature list to shipped code, requireme
 
 ### Pre-release gates (must finish before "shipped")
 
-1. **Phase 7 SC-3 — ARM64 hardware validation.** `scripts/arm64-validate.sh` exists, is executable, and has valid bash syntax. **Nobody has run it on a real ARM64 device.** Roadmap explicitly excludes QEMU emulation. This is the single largest open R1 item. Owner action: run on a Raspberry Pi 4/5, AWS Graviton, or M-series Mac with Docker Desktop.
+1. ~~**Phase 7 SC-3 — ARM64 hardware validation.** `scripts/arm64-validate.sh` exists, is executable, and has valid bash syntax. **Nobody has run it on a real ARM64 device.** Roadmap explicitly excludes QEMU emulation. This is the single largest open R1 item. Owner action: run on a Raspberry Pi 4/5, AWS Graviton, or M-series Mac with Docker Desktop.~~ — **Done 2026-05-07** on AWS EC2 t4g.small Graviton (Ubuntu 26.04 ARM64) using `dlandiak2110/tbmq-lightweight:latest`. All four canonical checks passed; full evidence in `07-VERIFICATION.md` (status: complete) and `07-HUMAN-UAT.md` (status: complete).
 2. ~~**Phase 7 SC-4 — Docker logs banner visibility.** `StartupWarningService` is wired and unit-tested, but the WARN-level banner has only been seen in test output, never in real `docker logs`. Quick visual check during the ARM64 run.~~ — **Done 2026-04-30** (user-confirmed: banner observed in real `docker logs`).
 3. ~~**Phase 7 SC-2 — full 24-hour soak.** Infrastructure is complete; only a 1-minute smoke run was executed (140 008 messages, 0 leaks, heap stable). Owner action: schedule the 24-hour run before public release. Not strictly blocking (test correctness is duration-independent) but flagged in the brief as a release gate.~~ — **Closed 2026-04-30 as OPTIONAL** (user decision). The 1-minute smoke run on 2026-04-12 (140 008 msgs, 0 ByteBuf leaks under PARANOID, heap stable) is the canonical SC-2 evidence; correctness is duration-independent.
 
@@ -119,18 +124,18 @@ Mapping the brief's "Release 1 — Core" feature list to shipped code, requireme
 
 4. ~~**REQUIREMENTS.md is out of date.** PROTO-08, PROTO-09, PROTO-10, OPS-01 are still `[ ]` despite VERIFICATION.md marking them SATISFIED. The Traceability table at the bottom has the same drift.~~ — **Done 2026-04-30** (`4c039b49e`).
 5. ~~**ROADMAP.md progress-table contradiction.** Phase 7 row shows `0/2 In Progress`, but plans 07-01 and 07-02 are listed `[x]` in the same file. PROJECT.md correctly says complete; ROADMAP.md table didn't get the final tick.~~ — **Done 2026-04-30** (`4c039b49e`).
-6. **STATE.md `status: verifying`.** Should be `complete` for milestone v1.0 archival, or stay at `verifying` until SC-3 + SC-4 are signed off. — **Kept at `verifying`** until SC-2/SC-3/SC-4 are signed off.
+6. ~~**STATE.md `status: verifying`.** Should be `complete` for milestone v1.0 archival, or stay at `verifying` until SC-3 + SC-4 are signed off. — **Kept at `verifying`** until SC-2/SC-3/SC-4 are signed off.~~ — **Done 2026-05-07.** Flipped to `status: complete` after SC-3 passed. All four Phase 7 success criteria now signed off.
 
 ### Suggested next phases (post-R1)
 
-7. **Phase 8 (suggested) — release packaging.** Build & push multi-arch Docker images to Docker Hub (`thingsboard/tbmq-lightweight:1.0.0` + `:latest`), publish a public README, write a quick-start doc. Depends on (1)–(3) being green. Rough scope: 1-2 days.
+7. **Phase 8 (suggested) — release packaging.** Build & push multi-arch Docker images to Docker Hub (`thingsboard/tbmq-lightweight:1.0.0` + `:latest`), publish a public README, write a quick-start doc. Depends on (1)–(3) being green. Rough scope: 1-2 days. — **Status update 2026-05-07:** Multi-arch buildx + push has been validated end-to-end against a test registry (`dlandiak2110/tbmq-lightweight:1.0.0` + `:latest`, both arches). Production `thingsboard/` push and the public README are deferred until **after R2** per user decision (in-tree sibling project until then; user-facing docs paired with the eventual repo-split decision). CI workflow item is also dropped from this scope.
 8. **Phase 9 (suggested) — observability tightening.** Phase 7 anti-patterns:
    - ~~`StartupWarningService.java:79` always emits the "retained in-memory" warning so the `if (!warnings.isEmpty())` guard is dead code (alert fatigue)~~ — **Stale claim.** WR-04 (`5d25fbf3d`) already moved the retained-in-memory line to `log.info(...)` at line 76; the WARN banner at line 79 is correctly guarded.
    - ~~`SoakTest.java:239` has a Python-style `{:.0f}` SLF4J placeholder~~ — **Done 2026-04-30** (`46143e19d`).
 
 ### Known technical debt that survived hardening
 
-9. **`ClientActor.java:203-215` (Phase 7 CR-01 fix).** Displaced actor on session takeover does not get explicitly stopped; QoS state maps leak until GC. Mitigation present but not a clean stop. Material under high-reconnect load.
+9. ~~**`ClientActor.java:203-215` (Phase 7 CR-01 fix).** Displaced actor on session takeover does not get explicitly stopped; QoS state maps leak until GC. Mitigation present but not a clean stop. Material under high-reconnect load.~~ — **Resolved 2026-05-04** during R1 code review pass on `lightweight/v1`. Both halves of this concern are closed: (a) QoS state leak — already fully fixed by Phase 7 CR-01 (`6dc0166e0`) which clears `inboundQos2`, `outboundQos1`, `outboundQos2`, and releases all packet IDs at lines 209-213; (b) "explicit stop()" — based on a misreading of the architecture: ClientActor is keyed by **clientId** (not sessionId) and reused across reconnects, so there is no displaced actor object — only a displaced `ClientSessionCtx` whose heavy state is cleared (CR-01), channel closed, LWT removed, subscriptions removed, and whose local reference falls out of scope at end of `processConnect`. The R1 review T5 polish pass surveyed `ClientActor` and rejected further changes; T11 (TbActorMailbox concurrency review) was rejected as the existing pattern is sound. The actual takeover defect was a separate timing race (channelInactive → SessionCloseMsg misdelivery) fixed by **T10** (`9da6ee54f`) + **T10b** (`5ddc867b1`). See `lightweight/REVIEW_REPORT.md` for the full audit trail.
 10. ~~**`DefaultMsgDispatcherService.dispatch()` race window.** Apr 30 quick fix established cooperative shutdown via the `running` flag, but `dispatch()` still calls `queue.offer()` before re-checking the queue isn't being drained.~~ — **Done 2026-04-30** (`0029a4377`). Practically-closed via orphan drain at the end of `stop()`: messages that land in the queue between consumer-exit and stop()-return are now counted on `mqtt.dispatch.dropped.total` instead of being silently lost. A nanosecond-scale residual remains (a `dispatch()` call paused for the entire duration of `stop()` could land an offer post-drain); the documented hard-correct upgrade path is a `ReadWriteLock` on `dispatch()` / `stop()` if benchmarks ever require it.
 11. ~~**`BrokerMetricsService.java:1` — missing Apache 2.0 license header.** Trivial; flagged as Info in `07-VERIFICATION.md`.~~ — **Done 2026-04-30** (`0d906f4e9`).
 
@@ -140,7 +145,7 @@ Walking through the brief's "Open decisions" section:
 
 | Brief decision | Resolution | Where decided / shipped | Status |
 |----------------|------------|--------------------------|--------|
-| Repository name & org structure (`tbmq-lightweight` / `tbmq-lite` / `tbmq-standalone`; separate org or under `thingsboard/`) | **Open.** PROJECT.md "Key Decisions" table marks "Separate repository over configurable mode" as `— Pending`. Codebase shipped as `lightweight/` *inside* the main `thingsboard/tbmq` repo with `artifactId=tbmq-lightweight` | `lightweight/pom.xml`, root `pom.xml` (lightweight not in `<modules>`) | **Still open** — needs an explicit go/no-go on extraction before R1 ship |
+| Repository name & org structure (`tbmq-lightweight` / `tbmq-lite` / `tbmq-standalone`; separate org or under `thingsboard/`) | **Deferred through R2 (2026-05-07 user decision).** `lightweight/` stays as in-tree sibling project alongside the main TBMQ codebase in this repo for the duration of R1 + R2; revisit the repo-split question only after R2 ships. PROJECT.md "Key Decisions" row updated 2026-05-07: Pending → "Deferred — `lightweight/` stays as in-tree sibling project through R1 + R2; revisit post-R2" | `lightweight/pom.xml`, root `pom.xml` (lightweight not in `<modules>`), PROJECT.md Key Decisions table | **Deferred to post-R2** |
 | Embedded storage selection (RocksDB vs H2 vs Chronicle Map) | **Resolved → RocksDB 9.7.4.** Chosen in Phase 1 because (a) already in TB ecosystem, (b) battle-tested KV, (c) small footprint. Brief's caveat about ARM64 JNI was addressed by hard-blocking Alpine in the Dockerfile (glibc-only) | `lightweight/storage/rocksdb/DefaultRocksDbStorage.java`, `lightweight/docker/Dockerfile` (warning comment), Phase 1 SUMMARY | **Resolved** |
 | In-process queue implementation (Disruptor vs `BlockingQueue`) | **Resolved → `LinkedBlockingQueue` for R1; Disruptor deferred unless benchmarks show saturation.** Decision logged in PROJECT.md | `lightweight/service/dispatch/LinkedBlockingQueueFactory.java` (42 lines), `PublishMsgQueueFactory` interface for swap path | **Resolved with deferred upgrade clause** |
 | R1 feature boundary for QoS — should QoS 1/2 to currently-connected clients ship in R1? | **Resolved → yes, in-flight only, no offline queue.** Phase 2 ships full QoS 0/1/2 handshakes (PUBACK / PUBREC+PUBREL+PUBCOMP) to connected subscribers; offline queuing remains R2 | `MqttQosIntegrationTest`, `ClientActor.processPublish/processPubRel/processPubComp` | **Resolved** |
@@ -170,31 +175,32 @@ Explicitly out of scope for R1, scheduled for R2+. None of these are present in 
 | Risk (from brief) | Current relevance | Recommendation |
 |-------------------|-------------------|----------------|
 | In-process queue becomes a bottleneck at high message rates | **Unverified.** Default queue capacity is 100 k; soak ran 1 minute at 500 clients × ~140 008 msgs total ≈ 2 333 msg/s. Brief's "tens of thousands of concurrent connections" target is not yet benchmarked | Run a sustained 10 k-connection / 50 k msg/s benchmark before claiming the target. Brief's "should we use Disruptor" can be re-opened if numbers fall short. STATE.md "Blockers/Concerns" already flags: "Performance targets: No explicit throughput floor defined. Recommended floor: 10,000 concurrent connections and 50,000 msg/sec sustained." |
-| RocksDB JNI + ARM64 native-library packaging | **Partially mitigated.** Dockerfile uses glibc-base image (correct), but the `arm64-validate.sh` has not been executed on a real ARM64 device (Phase 7 SC-3) | Run on Raspberry Pi 4/5 or AWS Graviton before tagging `1.0.0` |
-| Feature-gap confusion between Lightweight and standard TBMQ | **High.** No public README/docs in `lightweight/` aimed at end users; no decision matrix; no "when to choose which" guide | Add a top-level `lightweight/README.md` before public release (suggested Phase 8) |
-| No persistent sessions in R1 surprises Mosquitto migrators | **Unaddressed.** R2 roadmap exists in PROJECT.md but is not surfaced to users | Add a "Limitations" section to the public README; link to a tracked R2 issue |
+| RocksDB JNI + ARM64 native-library packaging | **Mitigated and verified (2026-05-07).** Dockerfile uses glibc-base image (correct); SC-3 validated on AWS EC2 t4g.small Graviton (Ubuntu 26.04 ARM64) — broker started cleanly, no `UnsatisfiedLinkError`, RocksDB credentials persisted across container restart | None — risk closed |
+| Feature-gap confusion between Lightweight and standard TBMQ | **Deferred to post-R2 (2026-05-07 user decision).** No public README in `lightweight/` aimed at end users yet; user-facing docs are paired with the eventual repo-split decision | Write `lightweight/README.md` (quick-start, limitations, decision matrix) **after R2 ships** — not a v1.0 gate |
+| No persistent sessions in R1 surprises Mosquitto migrators | **Deferred to post-R2 (paired with README above).** R2 roadmap exists in PROJECT.md but is not surfaced to users | Add a "Limitations" section to the post-R2 public README; link to a tracked R2 issue |
 
 ### New risks surfaced during execution (not in the brief)
 
 12. **Documentation drift across PROJECT.md / REQUIREMENTS.md / ROADMAP.md / STATE.md.** Three of the four planning files have inconsistencies (REQUIREMENTS unticked items, ROADMAP progress table, STATE status). Keep the GSD `complete-milestone` flow in mind when archiving — it should sweep these.
 13. **Phase 7 was marked "complete" before code-review fixes were applied.** Sequence: `b5a2d85e3` (complete) → `56a9ecb05` (review report) → 6 CR/WR fixes → re-verify. The fixes were real defects (null-password auth bypass, ungraceful dispatcher shutdown, MQTT 5 ACK headers). Worth tightening the workflow: "complete" should land *after* `code-review-fix`.
 14. **Repository extraction risk.** The longer `lightweight/` lives inside the main TBMQ repo with no module wiring, the more it looks like a permanent fork-in-place. Brief's stated rationale for Option A (faster cadence, simpler contribution story) is forfeited until the actual extraction happens.
-15. **Stop-on-empty-queue regression latent for ~6 weeks.** The Apr 30 quick fix `260430-itz` revealed that the Phase 7 CR-02 fix had been silently breaking three pre-existing tests since it landed. There is no CI gate on the `lightweight/` Maven project. Adding one (`mvn -f lightweight/pom.xml verify` on every PR) would catch the next regression earlier.
+15. **Stop-on-empty-queue regression latent for ~6 weeks.** The Apr 30 quick fix `260430-itz` revealed that the Phase 7 CR-02 fix had been silently breaking three pre-existing tests since it landed. There is no CI gate on the `lightweight/` Maven project. Adding one (`mvn -f lightweight/pom.xml verify` on every PR) would catch the next regression earlier. — **CI workflow dropped 2026-05-07 (user decision).** Risk acknowledged and accepted; not a v1.0 gate. Local `mvn test` runs continue to be the safety net through R1; revisit if regression cost grows.
 16. **`RETAINED_MESSAGES` RocksDB column family is reserved but unused.** R2 will need to write to it; ensure migration path stays clean (the brief's "forward-compatible storage layout" concern, already in STATE.md).
 
 ### Concrete follow-up checklist
 
-- [ ] Run `scripts/arm64-validate.sh` on real ARM64 hardware (Phase 7 SC-3)
+- [x] Run `scripts/arm64-validate.sh` on real ARM64 hardware (Phase 7 SC-3) _(done 2026-05-07 on AWS EC2 t4g.small Graviton, Ubuntu 26.04 ARM64, image `dlandiak2110/tbmq-lightweight:latest` — all four canonical checks passed; evidence in `07-VERIFICATION.md` / `07-HUMAN-UAT.md`)_
 - [x] Visually confirm the `STARTUP WARNINGS` banner in real `docker logs` (Phase 7 SC-4) _(user-confirmed 2026-04-30)_
 - [x] ~~Run the 24-hour soak with `mvn test -Dgroups=soak -Dsoak.duration.minutes=1440`~~ _(closed 2026-04-30 as OPTIONAL — 1-minute smoke is canonical SC-2 evidence)_
 - [x] Sweep REQUIREMENTS.md — tick PROTO-08/09/10, OPS-01; update Traceability table _(done 2026-04-30, `4c039b49e`)_
 - [x] Reconcile ROADMAP.md Phase 7 progress row to `2/2 Complete` _(done 2026-04-30, `4c039b49e`)_
 - [x] ~~Item 10 — `DefaultMsgDispatcherService` `dispatch()` / `stop()` race window~~ _(done 2026-04-30, `0029a4377` — orphan drain in `stop()` converts silent loss to counted loss on `mqtt.dispatch.dropped.total`; spec & plan in `docs/superpowers/`)_
-- [ ] Update STATE.md `status` from `verifying` to `complete` (kept `verifying` until SC-2/SC-3/SC-4 are signed off)
-- [ ] Decide repository strategy: extract `lightweight/` to its own repo (per brief), or formally amend PROJECT.md to record "in-tree sibling project" as the chosen variant
-- [ ] Add a CI workflow that runs `mvn -f lightweight/pom.xml verify` on PRs
-- [ ] Write a public-facing `lightweight/README.md` (quick-start, limitations, decision matrix vs. standard TBMQ)
-- [ ] Build and push multi-arch Docker images: `thingsboard/tbmq-lightweight:1.0.0` and `:latest`
+- [x] ~~Item 9 — `ClientActor.java` displaced-actor leak~~ _(resolved 2026-05-04 during R1 code review pass on `lightweight/v1` — see §0 / §4 entry; QoS-state half closed by Phase 7 CR-01, "explicit stop()" half rested on a misreading; T10 + T10b fixed the actual takeover race)_
+- [x] Update STATE.md `status` from `verifying` to `complete` _(done 2026-05-07 after SC-3 passed)_
+- [x] ~~Decide repository strategy: extract `lightweight/` to its own repo (per brief), or formally amend PROJECT.md to record "in-tree sibling project" as the chosen variant~~ _(deferred through R2 — 2026-05-07 user decision; `lightweight/` stays as in-tree sibling project until after R2 ships; PROJECT.md Key Decisions row updated)_
+- [x] ~~Add a CI workflow that runs `mvn -f lightweight/pom.xml verify` on PRs~~ _(dropped 2026-05-07 — user decision; not a v1.0 gate)_
+- [x] ~~Write a public-facing `lightweight/README.md` (quick-start, limitations, decision matrix vs. standard TBMQ)~~ _(deferred until after R2 — 2026-05-07 user decision; paired with the eventual repo-split decision)_
+- [x] Build and push multi-arch Docker images _(done 2026-05-07 to test registry `dlandiak2110/tbmq-lightweight:1.0.0` + `:latest`; both `linux/amd64` and `linux/arm64` in OCI manifest index `sha256:98554b72...`. Production push to `thingsboard/tbmq-lightweight` org would need separate Docker Hub credentials and is not pursued here)_
 
 ---
 

@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 7 context gathered
-last_updated: "2026-04-30T10:33:34.102Z"
-last_activity: 2026-04-30
+status: complete
+stopped_at: Milestone v1.0 verification complete — all 7 phases done, all SC closed (SC-3 ARM64 user-confirmed 2026-05-07 on AWS Graviton)
+last_updated: "2026-05-07"
+last_activity: 2026-05-07
 progress:
   total_phases: 7
   completed_phases: 7
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 
 Phase: 07
 Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-30 - Completed quick task 260430-myq: Phase 7 code cleanup — Apache 2.0 license header + SLF4J placeholder fix
+Status: Milestone v1.0 complete — all SC closed; ready for archival via /gsd:complete-milestone
+Last activity: 2026-05-07 - SC-3 ARM64 hardware validation passed on AWS EC2 t4g.small Graviton (Ubuntu 26.04 ARM64, image dlandiak2110/tbmq-lightweight:latest). Multi-arch image (amd64+arm64) pushed to dlandiak2110/tbmq-lightweight:1.0.0 and :latest.
 
 Progress: [████████████████████] 3/3 plans (100%)
 
@@ -133,7 +133,6 @@ None yet.
 ### Blockers/Concerns
 
 - RocksDB schema evolution: No migration framework defined. A `metadata` column family with a schema version key is recommended. Decide migration strategy before R2 schema changes.
-- Performance targets: No explicit throughput floor defined. Recommended floor: 10,000 concurrent connections and 50,000 msg/sec sustained. Confirm before Phase 3 benchmarks.
 - R2 forward-compatible storage layout: R1 RocksDB schema should be designed to accommodate future persistent session columns without migration pain. Address in Phase 1 column family design.
 
 ### Quick Tasks Completed
