@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-stopped_at: Milestone v1.0 verification complete — all 7 phases done, all SC closed (SC-3 ARM64 user-confirmed 2026-05-07 on AWS Graviton)
-last_updated: "2026-05-07"
-last_activity: 2026-05-07
+status: Awaiting next milestone
+stopped_at: Phase 7 complete, milestone v1.0 ready for archival
+last_updated: "2026-05-07T12:50:38.991Z"
+last_activity: 2026-05-07 — Milestone v1.0 completed and archived
 progress:
   total_phases: 7
   completed_phases: 7
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 
 ## Current Position
 
-Phase: 07
-Plan: Not started
-Status: Milestone v1.0 complete — all SC closed; ready for archival via /gsd:complete-milestone
-Last activity: 2026-05-07 - SC-3 ARM64 hardware validation passed on AWS EC2 t4g.small Graviton (Ubuntu 26.04 ARM64, image dlandiak2110/tbmq-lightweight:latest). Multi-arch image (amd64+arm64) pushed to dlandiak2110/tbmq-lightweight:1.0.0 and :latest.
-
-Progress: [████████████████████] 3/3 plans (100%)
+Phase: Milestone v1.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-07 — Milestone v1.0 completed and archived
 
 ## Performance Metrics
 
@@ -148,3 +146,7 @@ None yet.
 Last session: 2026-04-16
 Stopped at: Phase 7 complete, milestone v1.0 ready for archival
 Resume file: None
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

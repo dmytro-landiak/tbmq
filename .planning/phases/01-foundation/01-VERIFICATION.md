@@ -1,12 +1,14 @@
 ---
 phase: 01-foundation
 verified: 2026-04-03T15:15:00Z
-status: human_needed
-score: 12/13 must-haves verified
+revisited: 2026-05-07
+status: complete
+score: 13/13 must-haves verified (ARM64 closed by Phase 7 SC-3 hardware run on AWS Graviton)
 human_verification:
   - test: "ARM64 container validation"
     expected: "docker buildx build --platform linux/arm64 succeeds and container starts without UnsatisfiedLinkError from RocksDB JNI"
     why_human: "Local buildx has no arm64 QEMU emulator available (linux/amd64 only). OPS-03 requires arm64 support. The Dockerfile is correctly structured using eclipse-temurin:17-jre-jammy (glibc, not musl), which is the prerequisite. Actual arm64 execution requires hardware or QEMU registration."
+    result: passed (2026-05-07 — verified end-to-end on AWS EC2 t4g.small Graviton (Ubuntu 26.04 ARM64) using image dlandiak2110/tbmq-lightweight:latest. arm64/linux confirmed via docker inspect; broker started cleanly with no UnsatisfiedLinkError; RocksDB credentials persisted across container restart. Same Dockerfile path end-to-end; this verification subsumes the original Phase 1 OPS-03 ARM64 deferral. Full evidence: 07-VERIFICATION.md SC-3.)
 ---
 
 # Phase 1: Foundation Verification Report

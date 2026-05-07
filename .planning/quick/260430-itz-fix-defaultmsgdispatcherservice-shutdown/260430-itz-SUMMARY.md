@@ -4,6 +4,7 @@ phase: quick-260430-itz
 plan: 1
 type: quick
 mode: fix
+status: complete
 subsystem: lightweight/dispatch
 tags: [shutdown, lifecycle, executor-pool, regression-test]
 requirements:
